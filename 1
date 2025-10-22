@@ -1,0 +1,469 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
+
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+player.CharacterAdded:Connect(function(newChar) char = newChar end)
+
+-- Sound setup (simple beeps)
+local pressSound = Instance.new("Sound")
+pressSound.SoundId = "rbxasset://sounds/electronicpingshort.wav"  -- Placeholder; replace with custom ID
+pressSound.Volume = 0.5
+pressSound.Parent = SoundService
+
+local holdSound = Instance.new("Sound")
+holdSound.SoundId = "rbxasset://sounds/impact_water.mp3"  -- Looping hold; adjust
+holdSound.Looped = true
+holdSound.Volume = 0.3
+holdSound.Parent = SoundService
+
+-- Draggable (title bar only)
+local function makeDraggable(frame, handle)
+    local dragging, dragInput, mousePos, framePos = false
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; mousePos = input.Position; framePos = frame.Position
+            input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+        end
+    end)
+    handle.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input == dragInput then
+            local delta = input.Position - mousePos
+            frame.Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- Button effects (hover + hold/press animation/sound)
+local function addEffects(button, hoverColor, pressScale)
+    local originalColor = button.BackgroundColor3
+    local originalSize = button.Size
+    local holding = false
+    
+    button.MouseEnter:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = hoverColor}):Play()
+    end)
+    button.MouseLeave:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = originalColor}):Play()
+    end)
+    
+    button.MouseButton1Down:Connect(function()
+        holding = true
+        TweenService:Create(button, TweenInfo.new(0.1), {Size = UDim2.new(originalSize.X.Scale, originalSize.X.Offset * pressScale, originalSize.Y.Scale, originalSize.Y.Offset * pressScale)}):Play()
+        pressSound:Play()
+        holdSound:Play()
+    end)
+    button.MouseButton1Up:Connect(function()
+        holding = false
+        TweenService:Create(button, TweenInfo.new(0.1), {Size = originalSize}):Play()
+        holdSound:Stop()
+    end)
+    button.MouseLeave:Connect(function()
+        if holding then holding = false; TweenService:Create(button, TweenInfo.new(0.1), {Size = originalSize}):Play(); holdSound:Stop() end
+    end)
+end
+
+-- GUI Creation
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = player:WaitForChild("PlayerGui")
+screenGui.Name = "TouchTestGUI"
+screenGui.ResetOnSpawn = false
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 500, 0, 350)  -- Wider, same height
+mainFrame.Position = UDim2.new(0.5, -250, 0.5, -175)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+-- Gradient for main frame
+local mainGradient = Instance.new("UIGradient")
+mainGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 35, 35)), ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 15))}
+mainGradient.Rotation = 45
+mainGradient.Parent = mainFrame
+
+local mainCorner = Instance.new("UICorner") mainCorner.CornerRadius = UDim.new(0, 8) mainCorner.Parent = mainFrame
+local mainStroke = Instance.new("UIStroke") mainStroke.Color = Color3.fromRGB(100, 100, 100) mainStroke.Thickness = 1 mainStroke.Parent = mainFrame
+
+-- Title Bar
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 30)
+titleBar.Position = UDim2.new(0, 0, 0, 0)
+titleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local titleGradient = Instance.new("UIGradient")
+titleGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 50, 50)), ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 30))}
+titleGradient.Rotation = 90
+titleGradient.Parent = titleBar
+
+local titleCorner = Instance.new("UICorner") titleCorner.CornerRadius = UDim.new(0, 8) titleCorner.Parent = titleBar
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -70, 1, 0)
+title.Position = UDim2.new(0, 5, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "FAKE EXPLOIT BEFORE GTA7!"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.TextScaled = true
+title.Font = Enum.Font.SourceSansBold
+title.Parent = titleBar
+
+-- Minimize
+local minBtn = Instance.new("TextButton")
+minBtn.Size = UDim2.new(0, 25, 0, 25)
+minBtn.Position = UDim2.new(1, -55, 0, 2.5)
+minBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+minBtn.Text = "-"
+minBtn.TextColor3 = Color3.new(1, 1, 1)
+minBtn.TextScaled = true
+minBtn.Font = Enum.Font.SourceSans
+minBtn.BorderSizePixel = 0
+minBtn.Parent = titleBar
+local minCorner = Instance.new("UICorner") minCorner.CornerRadius = UDim.new(0, 4) minCorner.Parent = minBtn
+addEffects(minBtn, Color3.fromRGB(80, 80, 80), 1.1)
+
+-- Close
+local closeX = Instance.new("TextButton")
+closeX.Size = UDim2.new(0, 25, 0, 25)
+closeX.Position = UDim2.new(1, -27.5, 0, 2.5)
+closeX.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeX.Text = "X"
+closeX.TextColor3 = Color3.new(1, 1, 1)
+closeX.TextScaled = true
+closeX.Font = Enum.Font.SourceSansBold
+closeX.BorderSizePixel = 0
+closeX.Parent = titleBar
+local closeCorner = Instance.new("UICorner") closeCorner.CornerRadius = UDim.new(0, 4) closeCorner.Parent = closeX
+addEffects(closeX, Color3.fromRGB(220, 70, 70), 1.1)
+
+closeX.MouseButton1Up:Connect(function()  -- Use Up for close to avoid hold issues
+    local tween = TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 0, 0, 0)})
+    tween:Play()
+    tween.Completed:Connect(function() screenGui:Destroy() end)
+end)
+
+makeDraggable(mainFrame, titleBar)
+
+-- Content Area (split into two scrolling frames)
+local contentFrame = Instance.new("Frame")
+contentFrame.Size = UDim2.new(1, -20, 1, -170)
+contentFrame.Position = UDim2.new(0, 10, 0, 40)
+contentFrame.BackgroundTransparency = 1
+contentFrame.Parent = mainFrame
+
+-- Left: Name Filters ScrollingFrame
+local nameScroll = Instance.new("ScrollingFrame")
+nameScroll.Size = UDim2.new(0.48, -5, 1, 0)
+nameScroll.Position = UDim2.new(0, 0, 0, 0)
+nameScroll.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+nameScroll.BorderSizePixel = 0
+nameScroll.ScrollBarThickness = 4
+nameScroll.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
+nameScroll.Parent = contentFrame
+local nameCorner = Instance.new("UICorner") nameCorner.CornerRadius = UDim.new(0, 6) nameCorner.Parent = nameScroll
+
+local nameLayout = Instance.new("UIListLayout")
+nameLayout.Padding = UDim.new(0, 5)
+nameLayout.Parent = nameScroll
+
+-- Right: Instance Filters ScrollingFrame
+local instScroll = Instance.new("ScrollingFrame")
+instScroll.Size = UDim2.new(0.48, -5, 1, 0)
+instScroll.Position = UDim2.new(0.52, 0, 0, 0)
+instScroll.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+instScroll.BorderSizePixel = 0
+instScroll.ScrollBarThickness = 4
+instScroll.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
+instScroll.Parent = contentFrame
+local instCorner = Instance.new("UICorner") instCorner.CornerRadius = UDim.new(0, 6) instCorner.Parent = instScroll
+
+local instLayout = Instance.new("UIListLayout")
+instLayout.Padding = UDim.new(0, 5)
+instLayout.Parent = instScroll
+
+-- Labels for sections
+local nameLabel = Instance.new("TextLabel")
+nameLabel.Size = UDim2.new(1, 0, 0, 20)
+nameLabel.Position = UDim2.new(0, 0, 0, -25)
+nameLabel.BackgroundTransparency = 1
+nameLabel.Text = "Name Filters"
+nameLabel.TextColor3 = Color3.new(0.8, 0.8, 1)
+nameLabel.TextScaled = true
+nameLabel.Font = Enum.Font.SourceSansBold
+nameLabel.Parent = nameScroll
+
+local instLabel = Instance.new("TextLabel")
+instLabel.Size = UDim2.new(1, 0, 0, 20)
+instLabel.Position = UDim2.new(0, 0, 0, -25)
+instLabel.BackgroundTransparency = 1
+instLabel.Text = "Instance Filters (Descendants)"
+instLabel.TextColor3 = Color3.new(0.8, 0.8, 1)
+instLabel.TextScaled = true
+instLabel.Font = Enum.Font.SourceSansBold
+instLabel.Parent = instScroll
+
+-- Tip (centered above)
+local tipLabel = Instance.new("TextLabel")
+tipLabel.Size = UDim2.new(1, -20, 0, 20)
+tipLabel.Position = UDim2.new(0, 10, 0, 15)
+tipLabel.BackgroundTransparency = 1
+tipLabel.Text = "Tip: Filters combine (AND) for precise targeting!"
+tipLabel.TextColor3 = Color3.new(1, 1, 0)
+tipLabel.TextScaled = true
+tipLabel.Font = Enum.Font.SourceSansItalic
+tipLabel.Parent = mainFrame
+
+-- Generic add filter function
+local function addFilter(scroll, layout)
+    local filterFrame = Instance.new("Frame")
+    filterFrame.Size = UDim2.new(1, 0, 0, 30)
+    filterFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    filterFrame.BorderSizePixel = 0
+    filterFrame.Parent = scroll
+    
+    local fCorner = Instance.new("UICorner") fCorner.CornerRadius = UDim.new(0, 6) fCorner.Parent = filterFrame
+    
+    local textBox = Instance.new("TextBox")
+    textBox.Size = UDim2.new(0.8, 0, 1, 0)
+    textBox.Position = UDim2.new(0, 0, 0, 0)
+    textBox.PlaceholderText = "Filter text..."
+    textBox.BackgroundTransparency = 1
+    textBox.Text = ""
+    textBox.TextColor3 = Color3.new(1, 1, 1)
+    textBox.TextScaled = true
+    textBox.Font = Enum.Font.SourceSans
+    textBox.Parent = filterFrame
+    textBox.Focused:Connect(function() if textBox.Text == "" then textBox.PlaceholderText = "" end end)
+    textBox.FocusLost:Connect(function() if textBox.Text == "" then textBox.PlaceholderText = "Filter text..." end end)
+    
+    local removeX = Instance.new("TextButton")
+    removeX.Size = UDim2.new(0.2, 0, 1, 0)
+    removeX.Position = UDim2.new(0.8, 0, 0, 0)
+    removeX.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    removeX.Text = "X"
+    removeX.TextColor3 = Color3.new(1, 1, 1)
+    removeX.TextScaled = true
+    removeX.Font = Enum.Font.SourceSansBold
+    removeX.BorderSizePixel = 0
+    removeX.Parent = filterFrame
+    
+    local rCorner = Instance.new("UICorner") rCorner.CornerRadius = UDim.new(0, 4) rCorner.Parent = removeX
+    addEffects(removeX, Color3.fromRGB(220, 70, 70), 1.1)
+    
+    removeX.MouseButton1Up:Connect(function() filterFrame:Destroy(); layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10) end) end)
+    
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10) end)
+end
+
+-- Add Name Filter Button
+local addNameBtn = Instance.new("TextButton")
+addNameBtn.Size = UDim2.new(0.48, -5, 0, 25)
+addNameBtn.Position = UDim2.new(0, 0, 1, -135)
+addNameBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
+addNameBtn.Text = "Add Name Filter"
+addNameBtn.TextColor3 = Color3.new(1, 1, 1)
+addNameBtn.TextScaled = true
+addNameBtn.Font = Enum.Font.SourceSansBold
+addNameBtn.BorderSizePixel = 0
+addNameBtn.Parent = mainFrame
+local addNameCorner = Instance.new("UICorner") addNameCorner.CornerRadius = UDim.new(0, 6) addNameCorner.Parent = addNameBtn
+addEffects(addNameBtn, Color3.fromRGB(70, 120, 220), 1.05)
+addNameBtn.MouseButton1Up:Connect(function() addFilter(nameScroll, nameLayout) end)
+
+-- Add Instance Filter Button
+local addInstBtn = Instance.new("TextButton")
+addInstBtn.Size = UDim2.new(0.48, -5, 0, 25)
+addInstBtn.Position = UDim2.new(0.52, 0, 1, -135)
+addInstBtn.BackgroundColor3 = Color3.fromRGB(100, 50, 200)
+addInstBtn.Text = "Add Instance Filter"
+addInstBtn.TextColor3 = Color3.new(1, 1, 1)
+addInstBtn.TextScaled = true
+addInstBtn.Font = Enum.Font.SourceSansBold
+addInstBtn.BorderSizePixel = 0
+addInstBtn.Parent = mainFrame
+local addInstCorner = Instance.new("UICorner") addInstCorner.CornerRadius = UDim.new(0, 6) addInstCorner.Parent = addInstBtn
+addEffects(addInstBtn, Color3.fromRGB(120, 70, 220), 1.05)
+addInstBtn.MouseButton1Up:Connect(function() addFilter(instScroll, instLayout) end)
+
+-- Clear Both Button
+local clearBtn = Instance.new("TextButton")
+clearBtn.Size = UDim2.new(0.48, -10, 0, 25)
+clearBtn.Position = UDim2.new(0, 10, 1, -105)
+clearBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+clearBtn.Text = "Clear All Filters"
+clearBtn.TextColor3 = Color3.new(1, 1, 1)
+clearBtn.TextScaled = true
+clearBtn.Font = Enum.Font.SourceSansBold
+clearBtn.BorderSizePixel = 0
+clearBtn.Parent = mainFrame
+local clearCorner = Instance.new("UICorner") clearCorner.CornerRadius = UDim.new(0, 6) clearCorner.Parent = clearBtn
+addEffects(clearBtn, Color3.fromRGB(170, 70, 70), 1.05)
+clearBtn.MouseButton1Up:Connect(function()
+    for _, child in ipairs(nameScroll:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
+    for _, child in ipairs(instScroll:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
+    nameScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    instScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+end)
+
+-- Bring Button (now wider)
+local bringBtn = Instance.new("TextButton")
+bringBtn.Size = UDim2.new(1, -20, 0, 30)
+bringBtn.Position = UDim2.new(0, 10, 1, -70)
+bringBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+bringBtn.Text = "Bring Filtered Parts"
+bringBtn.TextColor3 = Color3.new(1, 1, 1)
+bringBtn.TextScaled = true
+bringBtn.Font = Enum.Font.SourceSansBold
+bringBtn.BorderSizePixel = 0
+bringBtn.Parent = mainFrame
+local bringCorner = Instance.new("UICorner") bringCorner.CornerRadius = UDim.new(0, 6) bringCorner.Parent = bringBtn
+addEffects(bringBtn, Color3.fromRGB(70, 220, 70), 1.05)
+
+-- Speed/Time Boxes (side by side)
+local speedBox = Instance.new("TextBox")
+speedBox.Size = UDim2.new(0.48, -10, 0, 25)
+speedBox.Position = UDim2.new(0, 10, 1, -35)
+speedBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+speedBox.TextColor3 = Color3.new(1, 1, 1)
+speedBox.PlaceholderText = "Speed"
+speedBox.Text = "250"
+speedBox.TextScaled = true
+speedBox.Font = Enum.Font.SourceSans
+speedBox.BorderSizePixel = 0
+speedBox.Parent = mainFrame
+local speedCorner = Instance.new("UICorner") speedCorner.CornerRadius = UDim.new(0, 6) speedCorner.Parent = speedBox
+
+local timeBox = Instance.new("TextBox")
+timeBox.Size = UDim2.new(0.48, -5, 0, 25)
+timeBox.Position = UDim2.new(0.52, 0, 1, -35)
+timeBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+timeBox.TextColor3 = Color3.new(1, 1, 1)
+timeBox.PlaceholderText = "Time (s)"
+timeBox.Text = "5"
+timeBox.TextScaled = true
+timeBox.Font = Enum.Font.SourceSans
+timeBox.BorderSizePixel = 0
+timeBox.Parent = mainFrame
+local timeCorner = Instance.new("UICorner") timeCorner.CornerRadius = UDim.new(0, 6) timeCorner.Parent = timeBox
+
+-- Auto Activate Toggle
+local autoToggle = Instance.new("TextButton")
+autoToggle.Size = UDim2.new(1, -20, 0, 25)
+autoToggle.Position = UDim2.new(0, 10, 1, -5)
+autoToggle.BackgroundColor3 = Color3.fromRGB(100, 100, 200)
+autoToggle.Text = "Auto Activate Prompts: OFF"
+autoToggle.TextColor3 = Color3.new(1, 1, 1)
+autoToggle.TextScaled = true
+autoToggle.Font = Enum.Font.SourceSansBold
+autoToggle.BorderSizePixel = 0
+autoToggle.Parent = mainFrame
+local autoCorner = Instance.new("UICorner") autoCorner.CornerRadius = UDim.new(0, 6) autoCorner.Parent = autoToggle
+addEffects(autoToggle, Color3.fromRGB(120, 120, 220), 1.05)
+
+local autoActive = false
+local autoConnection
+autoToggle.MouseButton1Up:Connect(function()
+    autoActive = not autoActive
+    autoToggle.Text = "Auto Activate Prompts: " .. (autoActive and "ON" or "OFF")
+    autoToggle.BackgroundColor3 = autoActive and Color3.fromRGB(50, 200, 100) or Color3.fromRGB(100, 100, 200)
+    
+    if autoActive then
+        autoConnection = RunService.Heartbeat:Connect(function()
+            if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+            local root = char.HumanoidRootPart
+            local radius = 50  -- Nearby radius
+            for _, obj in ipairs(workspace:GetPartBoundsInRadius(root.Position, radius)) do
+                if obj:IsA("BasePart") and obj:FindFirstChildOfClass("ProximityPrompt") then
+                    obj.ProximityPrompt:InputHoldBegin()  -- Simulate hold if needed; or just :InputHoldEnd() for instant
+                    obj.ProximityPrompt:InputHoldEnd()
+                end
+            end
+        end)
+    else
+        if autoConnection then autoConnection:Disconnect() end
+    end
+end)
+
+-- Action Label
+local actionLabel = Instance.new("TextLabel")
+actionLabel.Size = UDim2.new(1, -20, 0, 20)
+actionLabel.Position = UDim2.new(0, 10, 0, 365)  -- Below for space
+actionLabel.BackgroundTransparency = 1
+actionLabel.Text = "Idle"
+actionLabel.TextColor3 = Color3.new(0.8, 0.8, 1)
+actionLabel.TextScaled = true
+actionLabel.Font = Enum.Font.SourceSans
+actionLabel.Parent = mainFrame
+
+-- Minimize (tweened)
+local minimized, originalSize = false, mainFrame.Size
+local contentElems = {contentFrame, addNameBtn, addInstBtn, clearBtn, bringBtn, speedBox, timeBox, autoToggle, actionLabel, tipLabel}
+minBtn.MouseButton1Up:Connect(function()
+    minimized = not minimized
+    local targetSize = minimized and UDim2.new(0, 500, 0, 30) or originalSize
+    local sizeTween = TweenService:Create(mainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {Size = targetSize})
+    sizeTween:Play()
+    sizeTween.Completed:Connect(function()
+        for _, elem in ipairs(contentElems) do elem.Visible = not minimized end
+        minBtn.Text = minimized and "+" or "-"
+    end)
+end)
+
+-- Bring Logic (combined filters)
+bringBtn.MouseButton1Up:Connect(function()
+    actionLabel.Text = "Preparing..."
+    if not char or not char:FindFirstChild("HumanoidRootPart") then actionLabel.Text = "Error: No HRP!"; return end
+    local root = char.HumanoidRootPart
+    
+    -- Collect name filters
+    local nameFilters = {}
+    local hasNameFilters = false
+    for _, f in ipairs(nameScroll:GetChildren()) do
+        if f:IsA("Frame") then
+            local tb = f:FindFirstChildWhichIsA("TextBox")
+            if tb and tb.Text ~= "" and tb.Text ~= tb.PlaceholderText then
+                table.insert(nameFilters, tb.Text:lower())
+                hasNameFilters = true
+            end
+        end
+    end
+    
+    -- Collect instance filters (check for descendant with name)
+    local instFilters = {}
+    local hasInstFilters = false
+    for _, f in ipairs(instScroll:GetChildren()) do
+        if f:IsA("Frame") then
+            local tb = f:FindFirstChildWhichIsA("TextBox")
+            if tb and tb.Text ~= "" and tb.Text ~= tb.PlaceholderText then
+                table.insert(instFilters, tb.Text:lower())
+                hasInstFilters = true
+            end
+        end
+    end
+    
+    actionLabel.Text = "Finding parts..."
+    
+    local targets = {}
+    for _, desc in ipairs(workspace:GetDescendants()) do
+        if desc:IsA("BasePart") and desc:FindFirstChild("TouchInterest") then
+            local nameLower = desc.Name:lower()
+            local matchesName = not hasNameFilters
+            if hasNameFilters then
+                for _, filt in ipairs(nameFilters) do
+                    if string.find(nameLower, filt, 1, true) then matchesName = true; break end
+                end
+            end
+            
+            local matchesInst = not hasInstFilters
+            if hasInstFilters then
+                local hasMatch = false
+                for _, child in ipairs(desc:GetDescendants()) do
+                    if child.Name:lower() == instFilters[1] then  -- Simplified: exact match first inst filter; 

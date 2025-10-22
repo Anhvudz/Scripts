@@ -1,0 +1,845 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
+local originalCameraType = camera.CameraType
+local originalCameraSubject = camera.CameraSubject
+
+-- Sounds for button effects
+local pressSound = Instance.new("Sound")
+pressSound.SoundId = "rbxasset://sounds/electronicpingshort.wav"
+pressSound.Volume = 0.5
+pressSound.Parent = SoundService
+
+local holdSound = Instance.new("Sound")
+holdSound.SoundId = "rbxasset://sounds/impact_water.mp3"
+holdSound.Looped = true
+holdSound.Volume = 0.3
+holdSound.Parent = SoundService
+
+-- Draggable function (frame-wide)
+local function makeDraggable(frame)
+    local dragging = false
+    local dragInput, mousePos, framePos
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            mousePos = input.Position
+            framePos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input == dragInput) then
+            local delta = input.Position - mousePos
+            frame.Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- Button effects (hover, hold animation, sounds)
+local function addEffects(btn, hoverColor, pressScale)
+    local origColor = btn.BackgroundColor3
+    local origSize = btn.Size
+    local holding = false
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = hoverColor}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = origColor}):Play()
+    end)
+    btn.MouseButton1Down:Connect(function()
+        holding = true
+        TweenService:Create(btn, TweenInfo.new(0.1), {Size = UDim2.new(origSize.X.Scale, origSize.X.Offset * pressScale, origSize.Y.Scale, origSize.Y.Offset * pressScale)}):Play()
+        pressSound:Play()
+        holdSound:Play()
+    end)
+    btn.MouseButton1Up:Connect(function()
+        holding = false
+        TweenService:Create(btn, TweenInfo.new(0.1), {Size = origSize}):Play()
+        holdSound:Stop()
+    end)
+    btn.MouseLeave:Connect(function()
+        if holding then
+            holding = false
+            TweenService:Create(btn, TweenInfo.new(0.1), {Size = origSize}):Play()
+            holdSound:Stop()
+        end
+    end)
+end
+
+-- GUI Creation
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = player:WaitForChild("PlayerGui")
+screenGui.Name = "ControlGUI"
+screenGui.ResetOnSpawn = false
+
+-- Main Frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 320, 0, 420)
+mainFrame.Position = UDim2.new(0.5, -160, 0.5, -210)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+mainFrame.Visible = false
+
+local mainGradient = Instance.new("UIGradient")
+mainGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 35, 35)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 15))
+}
+mainGradient.Rotation = 45
+mainGradient.Parent = mainFrame
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 8)
+mainCorner.Parent = mainFrame
+
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Color = Color3.fromRGB(100, 100, 100)
+mainStroke.Thickness = 1
+mainStroke.Parent = mainFrame
+
+makeDraggable(mainFrame)
+
+-- Title Bar
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 30)
+titleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+titleBar.Parent = mainFrame
+
+local titleGradient = Instance.new("UIGradient")
+titleGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 50, 50)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 30))
+}
+titleGradient.Rotation = 90
+titleGradient.Parent = titleBar
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 8)
+titleCorner.Parent = titleBar
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -70, 1, 0)
+title.Position = UDim2.new(0, 5, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "Control Panel"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.TextScaled = true
+title.Font = Enum.Font.SourceSansBold
+title.Parent = titleBar
+
+-- Minimize Button
+local minBtn = Instance.new("TextButton")
+minBtn.Size = UDim2.new(0, 25, 0, 25)
+minBtn.Position = UDim2.new(1, -55, 0, 2.5)
+minBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+minBtn.Text = "-"
+minBtn.TextColor3 = Color3.new(1, 1, 1)
+minBtn.TextScaled = true
+minBtn.Font = Enum.Font.SourceSans
+minBtn.BorderSizePixel = 0
+minBtn.Parent = titleBar
+
+local minCorner = Instance.new("UICorner")
+minCorner.CornerRadius = UDim.new(0, 4)
+minCorner.Parent = minBtn
+
+addEffects(minBtn, Color3.fromRGB(80, 80, 80), 1.1)
+
+-- Close Button
+local closeX = Instance.new("TextButton")
+closeX.Size = UDim2.new(0, 25, 0, 25)
+closeX.Position = UDim2.new(1, -27.5, 0, 2.5)
+closeX.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeX.Text = "X"
+closeX.TextColor3 = Color3.new(1, 1, 1)
+closeX.TextScaled = true
+closeX.Font = Enum.Font.SourceSansBold
+closeX.BorderSizePixel = 0
+closeX.Parent = titleBar
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 4)
+closeCorner.Parent = closeX
+
+addEffects(closeX, Color3.fromRGB(220, 70, 70), 1.1)
+
+closeX.MouseButton1Up:Connect(function()
+    camera.CameraType = originalCameraType
+    camera.CameraSubject = originalCameraSubject
+    local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local tween = TweenService:Create(mainFrame, tweenInfo, {Size = UDim2.new(0, 0, 0, 0)})
+    tween:Play()
+    tween.Completed:Connect(function()
+        screenGui:Destroy()
+    end)
+end)
+
+-- Open Button
+local openBtn = Instance.new("TextButton")
+openBtn.Size = UDim2.new(0, 100, 0, 50)
+openBtn.Position = UDim2.new(0, 10, 0, 10)
+openBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+openBtn.Text = "Open"
+openBtn.TextColor3 = Color3.new(1, 1, 1)
+openBtn.TextScaled = true
+openBtn.Font = Enum.Font.SourceSansBold
+openBtn.BorderSizePixel = 0
+openBtn.Parent = screenGui
+
+local openCorner = Instance.new("UICorner")
+openCorner.CornerRadius = UDim.new(0, 8)
+openCorner.Parent = openBtn
+
+addEffects(openBtn, Color3.fromRGB(70, 220, 70), 1.05)
+
+makeDraggable(openBtn)
+
+-- Navigation Buttons
+local prevBtn = Instance.new("TextButton")
+prevBtn.Size = UDim2.new(0, 50, 0, 30)
+prevBtn.Position = UDim2.new(0, 10, 0, 40)
+prevBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
+prevBtn.Text = "<"
+prevBtn.TextColor3 = Color3.new(1, 1, 1)
+prevBtn.TextScaled = true
+prevBtn.Font = Enum.Font.SourceSansBold
+prevBtn.BorderSizePixel = 0
+prevBtn.Parent = mainFrame
+
+local prevCorner = Instance.new("UICorner")
+prevCorner.CornerRadius = UDim.new(0, 6)
+prevCorner.Parent = prevBtn
+
+addEffects(prevBtn, Color3.fromRGB(70, 120, 220), 1.05)
+
+local nextBtn = Instance.new("TextButton")
+nextBtn.Size = UDim2.new(0, 50, 0, 30)
+nextBtn.Position = UDim2.new(1, -60, 0, 40)
+nextBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
+nextBtn.Text = ">"
+nextBtn.TextColor3 = Color3.new(1, 1, 1)
+nextBtn.TextScaled = true
+nextBtn.Font = Enum.Font.SourceSansBold
+nextBtn.BorderSizePixel = 0
+nextBtn.Parent = mainFrame
+
+local nextCorner = Instance.new("UICorner")
+nextCorner.CornerRadius = UDim.new(0, 6)
+nextCorner.Parent = nextBtn
+
+addEffects(nextBtn, Color3.fromRGB(70, 120, 220), 1.05)
+
+-- Target Label
+local targetLabel = Instance.new("TextLabel")
+targetLabel.Size = UDim2.new(1, -130, 0, 30)
+targetLabel.Position = UDim2.new(0, 70, 0, 40)
+targetLabel.BackgroundTransparency = 1
+targetLabel.Text = "Target: None"
+targetLabel.TextColor3 = Color3.new(1, 1, 1)
+targetLabel.TextScaled = true
+targetLabel.Font = Enum.Font.SourceSansBold
+targetLabel.Parent = mainFrame
+
+-- Controls Frame
+local controlsFrame = Instance.new("Frame")
+controlsFrame.Size = UDim2.new(1, -20, 1, -80)
+controlsFrame.Position = UDim2.new(0, 10, 0, 80)
+controlsFrame.BackgroundTransparency = 1
+controlsFrame.Parent = mainFrame
+controlsFrame.Visible = false
+
+local controlListLayout = Instance.new("UIListLayout")
+controlListLayout.Padding = UDim.new(0, 5)
+controlListLayout.Parent = controlsFrame
+
+-- Control Button
+local controlBtn = Instance.new("TextButton")
+controlBtn.Size = UDim2.new(1, 0, 0, 30)
+controlBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+controlBtn.Text = "Control: Off"
+controlBtn.TextColor3 = Color3.new(1, 1, 1)
+controlBtn.TextScaled = true
+controlBtn.Font = Enum.Font.SourceSansBold
+controlBtn.BorderSizePixel = 0
+controlBtn.Parent = controlsFrame
+
+local controlCorner = Instance.new("UICorner")
+controlCorner.CornerRadius = UDim.new(0, 6)
+controlCorner.Parent = controlBtn
+
+addEffects(controlBtn, Color3.fromRGB(70, 220, 70), 1.05)
+
+-- Control Movement Frame (separate GUI for control buttons)
+local controlGui = nil
+local moveFrame = nil
+local moveBtns = {}
+
+-- Freeze Button
+local freezeBtn = Instance.new("TextButton")
+freezeBtn.Size = UDim2.new(1, 0, 0, 30)
+freezeBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+freezeBtn.Text = "Freeze: Off"
+freezeBtn.TextColor3 = Color3.new(1, 1, 1)
+freezeBtn.TextScaled = true
+freezeBtn.Font = Enum.Font.SourceSansBold
+freezeBtn.BorderSizePixel = 0
+freezeBtn.Parent = controlsFrame
+
+local freezeCorner = Instance.new("UICorner")
+freezeCorner.CornerRadius = UDim.new(0, 6)
+freezeCorner.Parent = freezeBtn
+
+addEffects(freezeBtn, Color3.fromRGB(70, 220, 70), 1.05)
+
+-- Kill Button
+local killBtn = Instance.new("TextButton")
+killBtn.Size = UDim2.new(1, 0, 0, 30)
+killBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+killBtn.Text = "Kill"
+killBtn.TextColor3 = Color3.new(1, 1, 1)
+killBtn.TextScaled = true
+killBtn.Font = Enum.Font.SourceSansBold
+killBtn.BorderSizePixel = 0
+killBtn.Parent = controlsFrame
+
+local killCorner = Instance.new("UICorner")
+killCorner.CornerRadius = UDim.new(0, 6)
+killCorner.Parent = killBtn
+
+addEffects(killBtn, Color3.fromRGB(220, 70, 70), 1.05)
+
+-- Chase Player Button
+local chaseBtn = Instance.new("TextButton")
+chaseBtn.Size = UDim2.new(1, 0, 0, 30)
+chaseBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+chaseBtn.Text = "Chase Player: Off"
+chaseBtn.TextColor3 = Color3.new(1, 1, 1)
+chaseBtn.TextScaled = true
+chaseBtn.Font = Enum.Font.SourceSansBold
+chaseBtn.BorderSizePixel = 0
+chaseBtn.Parent = controlsFrame
+
+local chaseCorner = Instance.new("UICorner")
+chaseCorner.CornerRadius = UDim.new(0, 6)
+chaseCorner.Parent = chaseBtn
+
+addEffects(chaseBtn, Color3.fromRGB(70, 220, 70), 1.05)
+
+-- Buff Button
+local buffBtn = Instance.new("TextButton")
+buffBtn.Size = UDim2.new(1, 0, 0, 30)
+buffBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+buffBtn.Text = "Buff: Off"
+buffBtn.TextColor3 = Color3.new(1, 1, 1)
+buffBtn.TextScaled = true
+buffBtn.Font = Enum.Font.SourceSansBold
+buffBtn.BorderSizePixel = 0
+buffBtn.Parent = controlsFrame
+
+local buffCorner = Instance.new("UICorner")
+buffCorner.CornerRadius = UDim.new(0, 6)
+buffCorner.Parent = buffBtn
+
+addEffects(buffBtn, Color3.fromRGB(70, 220, 70), 1.05)
+
+-- Punish Button
+local punishBtn = Instance.new("TextButton")
+punishBtn.Size = UDim2.new(1, 0, 0, 30)
+punishBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+punishBtn.Text = "Punish"
+punishBtn.TextColor3 = Color3.new(1, 1, 1)
+punishBtn.TextScaled = true
+punishBtn.Font = Enum.Font.SourceSansBold
+punishBtn.BorderSizePixel = 0
+punishBtn.Parent = controlsFrame
+
+local punishCorner = Instance.new("UICorner")
+punishCorner.CornerRadius = UDim.new(0, 6)
+punishCorner.Parent = punishBtn
+
+addEffects(punishBtn, Color3.fromRGB(220, 70, 70), 1.05)
+
+-- Variables
+local minimized = false
+local originalMainSize = mainFrame.Size
+local targets = {}
+local currentIndex = 1
+local currentTarget = nil
+local viewConn = nil
+local controlling = false
+local controlWeld = nil
+local playerPartProps = {}  -- Store original CanCollide and Transparency per part
+local moveKeyConn = nil
+local freezing = false
+local freezeConn = nil
+local chasing = false
+local chaseConn = nil
+local originalSpeeds = {}  -- Store original WalkSpeed per target
+
+-- Create Movement Buttons in separate GUI
+local function createMoveButtons()
+    if controlGui then controlGui:Destroy() end
+    controlGui = Instance.new("ScreenGui")
+    controlGui.Name = "ControlMoveGui"
+    controlGui.Parent = playerGui
+    controlGui.ResetOnSpawn = false
+    controlGui.Enabled = true  -- Ensure enabled
+
+    moveFrame = Instance.new("Frame")
+    moveFrame.Size = UDim2.new(0, 200, 0, 200)
+    moveFrame.Position = UDim2.new(0.5, -100, 0.5, -100)
+    moveFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    moveFrame.BackgroundTransparency = 0.5
+    moveFrame.Visible = true  -- Ensure visible
+    moveFrame.Parent = controlGui
+
+    local moveCorner = Instance.new("UICorner")
+    moveCorner.CornerRadius = UDim.new(0, 10)
+    moveCorner.Parent = moveFrame
+
+    makeDraggable(moveFrame)
+
+    local directions = {
+        {text = "⬆️", pos = UDim2.new(0.5, 0, 0, 0), dir = Vector3.new(0, 0, -1)},
+        {text = "⬅️", pos = UDim2.new(0.25, 0, 0.5, 0), dir = Vector3.new(-1, 0, 0)},
+        {text = "➡️", pos = UDim2.new(0.75, 0, 0.5, 0), dir = Vector3.new(1, 0, 0)},
+        {text = "⬇️", pos = UDim2.new(0.5, 0, 1, 0), dir = Vector3.new(0, 0, 1)}
+    }
+
+    moveBtns = {}
+    for i, dirInfo in ipairs(directions) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 60, 0, 60)
+        btn.Position = dirInfo.pos
+        btn.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
+        btn.Text = dirInfo.text
+        btn.TextColor3 = Color3.new(1, 1, 1)
+        btn.TextScaled = true
+        btn.Font = Enum.Font.SourceSansBold
+        btn.BorderSizePixel = 0
+        btn.Visible = true
+        btn.Parent = moveFrame
+
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 30)
+        btnCorner.Parent = btn
+
+        addEffects(btn, Color3.fromRGB(70, 120, 220), 1.1)
+
+        btn.MouseButton1Down:Connect(function()
+            if currentTarget and currentTarget:FindFirstChildOfClass("Humanoid") then
+                local hum = currentTarget:FindFirstChildOfClass("Humanoid")
+                hum:Move(dirInfo.dir)
+            end
+        end)
+
+        btn.MouseButton1Up:Connect(function()
+            if currentTarget and currentTarget:FindFirstChildOfClass("Humanoid") then
+                local hum = currentTarget:FindFirstChildOfClass("Humanoid")
+                hum:Move(Vector3.new(0, 0, 0))
+            end
+        end)
+
+        moveBtns[dirInfo.text] = btn
+    end
+
+    -- Jump Button in control GUI
+    local jumpControlBtn = Instance.new("TextButton")
+    jumpControlBtn.Size = UDim2.new(1, 0, 0, 40)
+    jumpControlBtn.Position = UDim2.new(0, 0, 1, -40)
+    jumpControlBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+    jumpControlBtn.Text = "Jump"
+    jumpControlBtn.TextColor3 = Color3.new(1, 1, 1)
+    jumpControlBtn.TextScaled = true
+    jumpControlBtn.Font = Enum.Font.SourceSansBold
+    jumpControlBtn.BorderSizePixel = 0
+    jumpControlBtn.Visible = true
+    jumpControlBtn.Parent = moveFrame
+
+    local jumpControlCorner = Instance.new("UICorner")
+    jumpControlCorner.CornerRadius = UDim.new(0, 6)
+    jumpControlCorner.Parent = jumpControlBtn
+
+    addEffects(jumpControlBtn, Color3.fromRGB(70, 220, 70), 1.05)
+
+    jumpControlBtn.MouseButton1Up:Connect(function()
+        if currentTarget and currentTarget:FindFirstChildOfClass("Humanoid") then
+            local hum = currentTarget:FindFirstChildOfClass("Humanoid")
+            hum.Jump = true
+        end
+    end)
+
+    -- Keyboard controls (PC)
+    moveKeyConn = UserInputService.InputBegan:Connect(function(input, gp)
+        if gp or not controlling then return end
+        local hum = currentTarget and currentTarget:FindFirstChildOfClass("Humanoid")
+        if not hum then return end
+        local dir = Vector3.new(0, 0, 0)
+        if input.KeyCode == Enum.KeyCode.W or input.KeyCode == Enum.KeyCode.Up then
+            dir = Vector3.new(0, 0, -1)
+        elseif input.KeyCode == Enum.KeyCode.A or input.KeyCode == Enum.KeyCode.Left then
+            dir = Vector3.new(-1, 0, 0)
+        elseif input.KeyCode == Enum.KeyCode.D or input.KeyCode == Enum.KeyCode.Right then
+            dir = Vector3.new(1, 0, 0)
+        elseif input.KeyCode == Enum.KeyCode.S or input.KeyCode == Enum.KeyCode.Down then
+            dir = Vector3.new(0, 0, 1)
+        end
+        if dir.Magnitude > 0 then
+            hum:Move(dir)
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if not controlling then return end
+        local hum = currentTarget and currentTarget:FindFirstChildOfClass("Humanoid")
+        if not hum then return end
+        if input.KeyCode == Enum.KeyCode.W or input.KeyCode == Enum.KeyCode.A or input.KeyCode == Enum.KeyCode.S or input.KeyCode == Enum.KeyCode.D or
+           input.KeyCode == Enum.KeyCode.Up or input.KeyCode == Enum.KeyCode.Left or input.KeyCode == Enum.KeyCode.Down or input.KeyCode == Enum.KeyCode.Right then
+            hum:Move(Vector3.new(0, 0, 0))
+        end
+    end)
+end
+
+-- Remove Movement Buttons
+local function removeMoveButtons()
+    if controlGui then
+        controlGui:Destroy()
+        controlGui = nil
+    end
+    if moveFrame then
+        moveFrame:Destroy()
+        moveFrame = nil
+        moveBtns = {}
+    end
+    if moveKeyConn then
+        moveKeyConn:Disconnect()
+        moveKeyConn = nil
+    end
+end
+
+-- Update Targets (includes players)
+local function updateTargets()
+    targets = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Character and p.Character:FindFirstChildOfClass("Humanoid") then
+            table.insert(targets, p.Character)
+        end
+    end
+    for _, model in ipairs(Workspace:GetChildren()) do
+        if model:IsA("Model") and model:FindFirstChildOfClass("Humanoid") and not Players:GetPlayerFromCharacter(model) then
+            table.insert(targets, model)
+        end
+    end
+end
+
+-- Get Target Position
+local function getTargetPosition(target)
+    if target:IsA("BasePart") then
+        return target.Position
+    elseif target:IsA("Model") then
+        return target:GetPivot().Position
+    end
+    return Vector3.zero
+end
+
+-- Update View (normal camera control following target)
+local function updateView()
+    if currentTarget then
+        local hum = currentTarget:FindFirstChildOfClass("Humanoid")
+        if hum then
+            camera.CameraType = Enum.CameraType.Custom
+            camera.CameraSubject = hum
+        end
+        targetLabel.Text = "Target: " .. currentTarget.Name
+        controlsFrame.Visible = true
+    else
+        camera.CameraType = originalCameraType
+        camera.CameraSubject = originalCameraSubject
+        targetLabel.Text = "Target: None"
+        controlsFrame.Visible = false
+    end
+end
+
+-- Select Random
+local function selectRandom()
+    updateTargets()
+    if #targets > 0 then
+        currentIndex = math.random(1, #targets)
+        currentTarget = targets[currentIndex]
+        updateView()
+    end
+end
+
+-- Minimize
+minBtn.MouseButton1Up:Connect(function()
+    minimized = not minimized
+    if minimized then
+        minBtn.Text = "+"
+        prevBtn.Visible = false
+        nextBtn.Visible = false
+        targetLabel.Visible = false
+        controlsFrame.Visible = false
+        local tween = TweenService:Create(mainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 320, 0, 30)})
+        tween:Play()
+    else
+        minBtn.Text = "-"
+        prevBtn.Visible = true
+        nextBtn.Visible = true
+        targetLabel.Visible = true
+        controlsFrame.Visible = currentTarget and currentTarget:FindFirstChildOfClass("Humanoid")
+        local tween = TweenService:Create(mainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {Size = originalMainSize})
+        tween:Play()
+    end
+end)
+
+-- Prev/Next
+prevBtn.MouseButton1Up:Connect(function()
+    if #targets > 0 then
+        currentIndex = currentIndex - 1
+        if currentIndex < 1 then currentIndex = #targets end
+        currentTarget = targets[currentIndex]
+        updateView()
+    end
+end)
+
+nextBtn.MouseButton1Up:Connect(function()
+    if #targets > 0 then
+        currentIndex = currentIndex + 1
+        if currentIndex > #targets then currentIndex = 1 end
+        currentTarget = targets[currentIndex]
+        updateView()
+    end
+end)
+
+-- Open/Close
+openBtn.MouseButton1Up:Connect(function()
+    if mainFrame.Visible then
+        mainFrame.Visible = false
+        openBtn.Text = "Open"
+        openBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+        camera.CameraType = originalCameraType
+        camera.CameraSubject = originalCameraSubject
+        currentTarget = nil
+        removeMoveButtons()  -- Revert if open
+    else
+        mainFrame.Visible = true
+        openBtn.Text = "Close"
+        openBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        selectRandom()
+    end
+end)
+
+-- Control (true control with weld, transparency, movement buttons/keys)
+controlBtn.MouseButton1Up:Connect(function()
+    if currentTarget and currentTarget:FindFirstChildOfClass("Humanoid") then
+        controlling = not controlling
+        controlBtn.Text = "Control: " .. (controlling and "On" or "Off")
+        local hum = currentTarget:FindFirstChildOfClass("Humanoid")
+        local targetRoot = currentTarget.PrimaryPart or currentTarget:FindFirstChild("HumanoidRootPart")
+        if not targetRoot then return end
+
+        if controlling then
+            -- Reset velocities to prevent freeze
+            for _, part in ipairs(currentTarget:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                    part.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+                    part:SetNetworkOwner(nil)
+                    if part ~= targetRoot then
+                        part.Massless = true  -- Reduce mass issues
+                    end
+                end
+            end
+
+            -- Store player properties
+            playerPartProps = {}
+            if player.Character then
+                for _, part in ipairs(player.Character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        playerPartProps[part] = {CanCollide = part.CanCollide, Transparency = part.Transparency}
+                        part.CanCollide = false
+                        part.Transparency = 0.8
+                        part.Massless = true  -- Fix mass
+                    end
+                end
+            end
+
+            -- Weld player to target (using Weld)
+            if player.Character and player.Character.PrimaryPart then
+                controlWeld = Instance.new("Weld")
+                controlWeld.Part0 = targetRoot
+                controlWeld.Part1 = player.Character.PrimaryPart
+                controlWeld.C0 = CFrame.new(0, -5, 0)  -- Offset
+                controlWeld.Parent = targetRoot
+            end
+
+            -- Create move buttons and keybinds
+            task.wait(0.1)  -- Small delay to ensure GUI creation
+            createMoveButtons()
+        else
+            -- Revert player properties
+            for part, props in pairs(playerPartProps) do
+                if part and part.Parent then
+                    part.CanCollide = props.CanCollide
+                    part.Transparency = props.Transparency
+                    part.Massless = false
+                end
+            end
+            playerPartProps = {}
+
+            -- Unweld
+            if controlWeld then
+                controlWeld:Destroy()
+                controlWeld = nil
+            end
+
+            -- Revert NetworkOwner and mass on target
+            for _, part in ipairs(currentTarget:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.Massless = false
+                end
+            end
+
+            -- Remove move buttons and keybinds
+            removeMoveButtons()
+        end
+    end
+end)
+
+-- Freeze
+freezeBtn.MouseButton1Up:Connect(function()
+    if currentTarget and currentTarget:FindFirstChildOfClass("Humanoid") then
+        freezing = not freezing
+        freezeBtn.Text = "Freeze: " .. (freezing and "On" or "Off")
+        local hum = currentTarget:FindFirstChildOfClass("Humanoid")
+        if freezing then
+            if freezeConn then freezeConn:Disconnect() end
+            freezeConn = RunService.Heartbeat:Connect(function()
+                hum:Move(Vector3.new(0, 0, 0))
+            end)
+        else
+            if freezeConn then freezeConn:Disconnect() end
+        end
+    end
+end)
+
+-- Kill
+killBtn.MouseButton1Up:Connect(function()
+    if currentTarget and currentTarget:FindFirstChildOfClass("Humanoid") then
+        local hum = currentTarget:FindFirstChildOfClass("Humanoid")
+        local oldPivot = player.Character and player.Character:GetPivot()
+        if player.Character then
+            player.Character:PivotTo(currentTarget:GetPivot() * CFrame.new(0, -5, 0))
+        end
+        hum.Health = 0
+        task.wait(1)
+        if player.Character and oldPivot then
+            player.Character:PivotTo(oldPivot)
+        end
+    end
+end)
+
+-- Chase Player
+chaseBtn.MouseButton1Up:Connect(function()
+    if currentTarget and currentTarget:FindFirstChildOfClass("Humanoid") then
+        chasing = not chasing
+        chaseBtn.Text = "Chase Player: " .. (chasing and "On" or "Off")
+        local hum = currentTarget:FindFirstChildOfClass("Humanoid")
+        if chasing then
+            if chaseConn then chaseConn:Disconnect() end
+            chaseConn = RunService.Heartbeat:Connect(function()
+                if player.Character and player.Character.PrimaryPart then
+                    hum:MoveTo(player.Character.PrimaryPart.Position)
+                end
+            end)
+        else
+            if chaseConn then chaseConn:Disconnect() end
+        end
+    end
+end)
+
+-- Buff
+buffBtn.MouseButton1Up:Connect(function()
+    if currentTarget and currentTarget:FindFirstChildOfClass("Humanoid") then
+        local hum = currentTarget:FindFirstChildOfClass("Humanoid")
+        if not originalSpeeds[currentTarget] then
+            originalSpeeds[currentTarget] = hum.WalkSpeed
+        end
+        local isBuffed = buffBtn.Text == "Buff: On"
+        buffBtn.Text = "Buff: " .. (isBuffed and "Off" or "On")
+        if isBuffed then
+            hum.WalkSpeed = originalSpeeds[currentTarget]
+        else
+            hum.WalkSpeed = originalSpeeds[currentTarget] + 50
+        end
+    end
+end)
+
+-- Punish
+punishBtn.MouseButton1Up:Connect(function()
+    if currentTarget then
+        currentTarget:PivotTo(CFrame.new(0, -500, 0))
+    end
+end)
+
+-- Cleanup on player respawn or GUI destroy
+player.CharacterAdded:Connect(function()
+    if controlling then
+        controlling = false
+        controlBtn.Text = "Control: Off"
+        -- Revert properties
+        for part, props in pairs(playerPartProps) do
+            if part and part.Parent then
+                part.CanCollide = props.CanCollide
+                part.Transparency = props.Transparency
+                part.Massless = false
+            end
+        end
+        playerPartProps = {}
+        if controlWeld then controlWeld:Destroy() controlWeld = nil end
+        removeMoveButtons()
+    end
+    if freezing then freezing = false; freezeBtn.Text = "Freeze: Off"; if freezeConn then freezeConn:Disconnect() end end
+    if chasing then chasing = false; chaseBtn.Text = "Chase Player: Off"; if chaseConn then chaseConn:Disconnect() end end
+end)
+
+-- Cleanup on GUI destroy
+screenGui.AncestryChanged:Connect(function()
+    if not screenGui.Parent then
+        camera.CameraType = originalCameraType
+        camera.CameraSubject = originalCameraSubject
+        if viewConn then viewConn:Disconnect() end
+        removeMoveButtons()
+        if controlling then
+            -- Revert if destroying while controlling
+            for part, props in pairs(playerPartProps) do
+                if part and part.Parent then
+                    part.CanCollide = props.CanCollide
+                    part.Transparency = props.Transparency
+                    part.Massless = false
+                end
+            end
+            playerPartProps = {}
+            if controlWeld then controlWeld:Destroy() controlWeld = nil end
+        end
+    end
+end)
+
+print("Updated Control Panel loaded! Fixed movement GUI visibility (Enabled/Visible flags + delay), camera to Custom with Humanoid subject for normal control while following target.")

@@ -1,0 +1,291 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Sounds
+local pressSound = Instance.new("Sound") pressSound.SoundId = "rbxasset://sounds/electronicpingshort.wav" pressSound.Volume = 0.5 pressSound.Parent = SoundService
+local holdSound = Instance.new("Sound") holdSound.SoundId = "rbxasset://sounds/impact_water.mp3" holdSound.Looped = true holdSound.Volume = 0.3 holdSound.Parent = SoundService
+
+-- Draggable (frame-wide as provided)
+local function makeDraggable(frame)
+    local dragging = false
+    local dragInput, mousePos, framePos
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            mousePos = input.Position
+            framePos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input == dragInput) then
+            local delta = input.Position - mousePos
+            frame.Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- Button effects
+local function addEffects(btn, hoverColor, pressScale)
+    local origColor = btn.BackgroundColor3 local origSize = btn.Size local holding = false
+    btn.MouseEnter:Connect(function() TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = hoverColor}):Play() end)
+    btn.MouseLeave:Connect(function() TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = origColor}):Play() end)
+    btn.MouseButton1Down:Connect(function()
+        holding = true
+        TweenService:Create(btn, TweenInfo.new(0.1), {Size = UDim2.new(origSize.X.Scale, origSize.X.Offset * pressScale, origSize.Y.Scale, origSize.Y.Offset * pressScale)}):Play()
+        pressSound:Play() holdSound:Play()
+    end)
+    btn.MouseButton1Up:Connect(function()
+        holding = false
+        TweenService:Create(btn, TweenInfo.new(0.1), {Size = origSize}):Play()
+        holdSound:Stop()
+    end)
+    btn.MouseLeave:Connect(function() if holding then holding = false TweenService:Connect(btn, TweenInfo.new(0.1), {Size = origSize}):Play() holdSound:Stop() end end)
+end
+
+-- GUI
+local screenGui = Instance.new("ScreenGui") screenGui.Name = "HitboxExpander" screenGui.ResetOnSpawn = false screenGui.Parent = playerGui
+
+local mainFrame = Instance.new("Frame") mainFrame.Size = UDim2.new(0, 300, 0, 400) mainFrame.Position = UDim2.new(0.5, -150, 0.5, -200) mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25) mainFrame.BorderSizePixel = 0 mainFrame.Parent = screenGui
+
+local mainGradient = Instance.new("UIGradient") mainGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 35, 35)), ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 15))} mainGradient.Rotation = 45 mainGradient.Parent = mainFrame
+
+local mainCorner = Instance.new("UICorner") mainCorner.CornerRadius = UDim.new(0, 8) mainCorner.Parent = mainFrame
+local mainStroke = Instance.new("UIStroke") mainStroke.Color = Color3.fromRGB(100, 100, 100) mainStroke.Thickness = 1 mainStroke.Parent = mainFrame
+
+-- Title Bar (for visuals)
+local titleBar = Instance.new("Frame") titleBar.Size = UDim2.new(1, 0, 0, 30) titleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40) titleBar.Parent = mainFrame
+local titleGradient = Instance.new("UIGradient") titleGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 50, 50)), ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 30))} titleGradient.Rotation = 90 titleGradient.Parent = titleBar
+local titleCorner = Instance.new("UICorner") titleCorner.CornerRadius = UDim.new(0, 8) titleCorner.Parent = titleBar
+
+local title = Instance.new("TextLabel") title.Size = UDim2.new(1, -70, 1, 0) title.Position = UDim2.new(0, 5, 0, 0) title.BackgroundTransparency = 1 title.Text = "Hitbox Expander" title.TextColor3 = Color3.new(1,1,1) title.TextScaled = true title.Font = Enum.Font.SourceSansBold title.Parent = titleBar
+
+-- Minimize
+local minBtn = Instance.new("TextButton") minBtn.Size = UDim2.new(0, 25, 0, 25) minBtn.Position = UDim2.new(1, -55, 0, 2.5) minBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60) minBtn.Text = "-" minBtn.TextColor3 = Color3.new(1,1,1) minBtn.TextScaled = true minBtn.Font = Enum.Font.SourceSans minBtn.BorderSizePixel = 0 minBtn.Parent = titleBar
+local minCorner = Instance.new("UICorner") minCorner.CornerRadius = UDim.new(0, 4) minCorner.Parent = minBtn addEffects(minBtn, Color3.fromRGB(80, 80, 80), 1.1)
+
+-- Close
+local closeBtn = Instance.new("TextButton") closeBtn.Size = UDim2.new(0, 25, 0, 25) closeBtn.Position = UDim2.new(1, -27.5, 0, 2.5) closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) closeBtn.Text = "X" closeBtn.TextColor3 = Color3.new(1,1,1) closeBtn.TextScaled = true closeBtn.Font = Enum.Font.SourceSansBold closeBtn.BorderSizePixel = 0 closeBtn.Parent = titleBar
+local closeCorner = Instance.new("UICorner") closeCorner.CornerRadius = UDim.new(0, 4) closeCorner.Parent = closeBtn addEffects(closeBtn, Color3.fromRGB(220, 70, 70), 1.1)
+
+closeBtn.MouseButton1Up:Connect(function()
+    local tween = TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 0, 0, 0)})
+    tween:Play() tween.Completed:Connect(function() screenGui:Destroy() end)
+end)
+
+makeDraggable(mainFrame)
+
+-- Target TextBox
+local targetBox = Instance.new("TextBox") targetBox.Size = UDim2.new(1, -10, 0, 25) targetBox.Position = UDim2.new(0, 5, 0, 40) targetBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40) targetBox.Text = "Me" targetBox.PlaceholderText = "Target: Me, Other, All, PlayerName/ModelName" targetBox.TextColor3 = Color3.new(1,1,1) targetBox.TextScaled = true targetBox.Font = Enum.Font.SourceSans targetBox.BorderSizePixel = 0 targetBox.Parent = mainFrame
+local targetCorner = Instance.new("UICorner") targetCorner.CornerRadius = UDim.new(0, 6) targetCorner.Parent = targetBox
+
+-- Size TextBox
+local sizeBox = Instance.new("TextBox") sizeBox.Size = UDim2.new(1, -10, 0, 25) sizeBox.Position = UDim2.new(0, 5, 0, 70) sizeBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40) sizeBox.Text = "10" sizeBox.PlaceholderText = "Size (number)" sizeBox.TextColor3 = Color3.new(1,1,1) sizeBox.TextScaled = true sizeBox.Font = Enum.Font.SourceSans sizeBox.BorderSizePixel = 0 sizeBox.Parent = mainFrame
+local sizeCorner = Instance.new("UICorner") sizeCorner.CornerRadius = UDim.new(0, 6) sizeCorner.Parent = sizeBox
+
+-- Apply Button
+local applyBtn = Instance.new("TextButton") applyBtn.Size = UDim2.new(0.48, -5, 0, 30) applyBtn.Position = UDim2.new(0, 5, 0, 100) applyBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0) applyBtn.Text = "Apply" applyBtn.TextColor3 = Color3.new(1,1,1) applyBtn.TextScaled = true applyBtn.Font = Enum.Font.SourceSansBold applyBtn.BorderSizePixel = 0 applyBtn.Parent = mainFrame
+local applyCorner = Instance.new("UICorner") applyCorner.CornerRadius = UDim.new(0, 6) applyCorner.Parent = applyBtn addEffects(applyBtn, Color3.fromRGB(0, 180, 0), 1.05)
+
+-- Undo Button
+local undoBtn = Instance.new("TextButton") undoBtn.Size = UDim2.new(0.48, -5, 0, 30) undoBtn.Position = UDim2.new(0.52, 0, 0, 100) undoBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0) undoBtn.Text = "Undo" undoBtn.TextColor3 = Color3.new(1,1,1) undoBtn.TextScaled = true undoBtn.Font = Enum.Font.SourceSansBold undoBtn.BorderSizePixel = 0 undoBtn.Parent = mainFrame
+local undoCorner = Instance.new("UICorner") undoCorner.CornerRadius = UDim.new(0, 6) undoCorner.Parent = undoBtn addEffects(undoBtn, Color3.fromRGB(180, 0, 0), 1.05)
+
+-- Clear All (X)
+local clearBtn = Instance.new("TextButton") clearBtn.Size = UDim2.new(1, -10, 0, 25) clearBtn.Position = UDim2.new(0, 5, 0, 135) clearBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) clearBtn.Text = "X: Clear All Whitelist" clearBtn.TextColor3 = Color3.new(1,1,1) clearBtn.TextScaled = true clearBtn.Font = Enum.Font.SourceSansBold clearBtn.BorderSizePixel = 0 clearBtn.Parent = mainFrame
+local clearCorner = Instance.new("UICorner") clearCorner.CornerRadius = UDim.new(0, 6) clearCorner.Parent = clearBtn addEffects(clearBtn, Color3.fromRGB(220, 70, 70), 1.05)
+
+-- Player/Model List ScrollingFrame
+local playerScroll = Instance.new("ScrollingFrame") playerScroll.Size = UDim2.new(1, -10, 1, -175) playerScroll.Position = UDim2.new(0, 5, 0, 165) playerScroll.BackgroundColor3 = Color3.fromRGB(30, 30, 30) playerScroll.BorderSizePixel = 0 playerScroll.ScrollBarThickness = 4 playerScroll.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100) playerScroll.Parent = mainFrame
+local playerCorner = Instance.new("UICorner") playerCorner.CornerRadius = UDim.new(0, 6) playerCorner.Parent = playerScroll
+
+local playerLayout = Instance.new("UIListLayout") playerLayout.Padding = UDim.new(0, 2) playerLayout.Parent = playerScroll
+playerLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() playerScroll.CanvasSize = UDim2.new(0, 0, 0, playerLayout.AbsoluteContentSize.Y + 10) end)
+
+-- Action Label
+local actionLabel = Instance.new("TextLabel") actionLabel.Size = UDim2.new(1, -10, 0, 20) actionLabel.Position = UDim2.new(0, 5, 1, -20) actionLabel.BackgroundTransparency = 1 actionLabel.Text = "Ready" actionLabel.TextColor3 = Color3.new(0.8, 0.8, 1) actionLabel.TextScaled = true actionLabel.Font = Enum.Font.SourceSans actionLabel.Parent = mainFrame
+
+-- Whitelist {player or model = size}
+local whitelist = {}
+local sizeValue = tonumber(sizeBox.Text) or 10
+
+-- Apply expansion
+local function applyExpansion(targetModel, sz)
+    if not targetModel or not targetModel:FindFirstChild("HumanoidRootPart") then return end
+    local root = targetModel.HumanoidRootPart
+    local hitbox = root:Clone()
+    hitbox.Name = "ExpandedHitbox"
+    hitbox.Size = root.Size + Vector3.new(sz, sz, sz)
+    hitbox.Transparency = 0.8
+    hitbox.CanCollide = false
+    hitbox.Anchored = false
+    hitbox.Massless = true
+    hitbox.Parent = targetModel
+    -- Weld to root
+    local weld = Instance.new("WeldConstraint")
+    weld.Part0 = root
+    weld.Part1 = hitbox
+    weld.Parent = root
+end
+
+-- Remove expansion
+local function removeExpansion(targetModel)
+    if targetModel then
+        local hitbox = targetModel:FindFirstChild("ExpandedHitbox")
+        if hitbox then hitbox:Destroy() end
+    end
+end
+
+-- Update list
+local function updatePlayerList()
+    for _, child in ipairs(playerScroll:GetChildren()) do if child:IsA("TextLabel") then child:Destroy() end end
+    -- Players
+    for _, p in ipairs(Players:GetPlayers()) do
+        local isExpanded = whitelist[p] ~= nil
+        local plabel = Instance.new("TextLabel")
+        plabel.Size = UDim2.new(1, 0, 0, 20)
+        plabel.BackgroundTransparency = 1
+        plabel.Text = p.Name .. (isExpanded and " [Expanded]" or "")
+        plabel.TextColor3 = isExpanded and Color3.new(0,1,0) or Color3.new(1,1,1)
+        plabel.TextScaled = true
+        plabel.Font = Enum.Font.SourceSans
+        plabel.TextXAlignment = Enum.TextXAlignment.Left
+        plabel.Parent = playerScroll
+    end
+    -- NPCs/Models
+    for _, model in ipairs(workspace:GetChildren()) do
+        if model:IsA("Model") and model:FindFirstChild("Humanoid") and model:FindFirstChild("HumanoidRootPart") and not Players:GetPlayerFromCharacter(model) then
+            local isExpanded = whitelist[model] ~= nil and model:FindFirstChild("ExpandedHitbox")
+            local plabel = Instance.new("TextLabel")
+            plabel.Size = UDim2.new(1, 0, 20)
+            plabel.BackgroundTransparency = 1
+            plabel.Text = "NPC: " .. model.Name .. (isExpanded and " [Expanded]" or "")
+            plabel.TextColor3 = isExpanded and Color3.new(0,1,0) or Color3.new(1,1,1)
+            plabel.TextScaled = true
+            plabel.Font = Enum.Font.SourceSans
+            plabel.TextXAlignment = Enum.TextXAlignment.Left
+            plabel.Parent = playerScroll
+        end
+    end
+end
+
+-- Handle player char added
+local function onPlayerCharAdded(char, p)
+    char.ChildRemoved:Connect(function(child) if child.Name == "HumanoidRootPart" then removeExpansion(char) end end)
+    wait(1)
+    if whitelist[p] then applyExpansion(char, whitelist[p]) end
+end
+
+-- Player added
+Players.PlayerAdded:Connect(function(p)
+    p.CharacterAdded:Connect(function(char) onPlayerCharAdded(char, p) end)
+    if p.Character then onPlayerCharAdded(p.Character, p) end
+    updatePlayerList()
+end)
+
+-- Player removing
+Players.PlayerRemoving:Connect(function(p)
+    if whitelist[p] then removeExpansion(p.Character) end
+    whitelist[p] = nil
+    updatePlayerList()
+end)
+
+-- Local player
+if player.Character then onPlayerCharAdded(player.Character, player) end
+player.CharacterAdded:Connect(function(char) onPlayerCharAdded(char, player) end)
+
+updatePlayerList()
+
+-- Process target
+local function processTarget(apply)
+    local tgt = targetBox.Text:lower():gsub(" ", "")
+    local sz = sizeValue
+    local count = 0
+    if tgt == "me" then
+        if apply then whitelist[player] = sz; applyExpansion(player.Character, sz) else whitelist[player] = nil; removeExpansion(player.Character) end
+        count = 1
+    elseif tgt == "all" then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if apply then whitelist[p] = sz; applyExpansion(p.Character, sz) else whitelist[p] = nil; removeExpansion(p.Character) end
+            count += 1
+        end
+    elseif tgt == "other" then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= player then
+                if apply then whitelist[p] = sz; applyExpansion(p.Character, sz) else whitelist[p] = nil; removeExpansion(p.Character) end
+                count += 1
+            end
+        end
+    else  -- PlayerName or ModelName
+        local targetPlayer = Players:FindFirstChild(tgt)
+        local targetModel = nil
+        if targetPlayer then
+            targetModel = targetPlayer
+        else
+            targetModel = workspace:FindFirstChild(tgt, true)
+            if targetModel and not (targetModel:IsA("Model") and targetModel:FindFirstChild("HumanoidRootPart")) then targetModel = nil end
+        end
+        if targetModel then
+            if apply then
+                if targetModel:IsA("Player") then whitelist[targetModel] = sz; applyExpansion(targetModel.Character, sz)
+                else whitelist[targetModel] = sz; applyExpansion(targetModel, sz) end
+            else
+                if targetModel:IsA("Player") then whitelist[targetModel] = nil; removeExpansion(targetModel.Character)
+                else whitelist[targetModel] = nil; removeExpansion(targetModel) end
+            end
+            count = 1
+        else
+            actionLabel.Text = "Target not found!"
+            return
+        end
+    end
+    actionLabel.Text = (apply and "Applied" or "Undone") .. " to " .. count .. " targets"
+    updatePlayerList()
+end
+
+applyBtn.MouseButton1Up:Connect(function() processTarget(true) end)
+undoBtn.MouseButton1Up:Connect(function() processTarget(false) end)
+
+-- Clear All
+clearBtn.MouseButton1Up:Connect(function()
+    for key, _ in pairs(whitelist) do
+        if key:IsA("Player") then removeExpansion(key.Character) else removeExpansion(key) end
+    end
+    whitelist = {}
+    actionLabel.Text = "Cleared all!"
+    updatePlayerList()
+end)
+
+-- Size change
+sizeBox.FocusLost:Connect(function() sizeValue = tonumber(sizeBox.Text) or 10 end)
+
+-- Minimize
+local minimized, origSize = false, mainFrame.Size
+local contentElems = {targetBox, sizeBox, applyBtn, undoBtn, clearBtn, playerScroll, actionLabel}
+minBtn.MouseButton1Up:Connect(function()
+    minimized = not minimized
+    local targetSize = minimized and UDim2.new(0, 300, 0, 30) or origSize
+    local sizeTween = TweenService:Create(mainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {Size = targetSize})
+    sizeTween:Play()
+    sizeTween.Completed:Connect(function()
+        for _, elem in ipairs(contentElems) do elem.Visible = not minimized end
+        minBtn.Text = minimized and "+" or "-"
+    end)
+end)
+
+print("Updated Hitbox Expander loaded! Supports players & NPCs/models. Massless hitboxes, 0.8 transparency.")
