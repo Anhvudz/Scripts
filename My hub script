@@ -289,6 +289,261 @@ function OrionLib:MakeWindow(opts)
     return window
 end
 
+return OrionLib            end)
+        end
+    end)
+    
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
+            update(input)
+        end
+    end)
+end
+
+-- File I/O Helpers
+local function safeMakeFolder(folder)
+    if hasFileIO and isfolder and not isfolder(folder) then makefolder(folder) end
+end
+
+local function safeWriteFile(file, data)
+    if hasFileIO then writefile(file, HttpService:JSONEncode(data)) end
+end
+
+local function safeReadFile(file)
+    if hasFileIO and isfile and isfile(file) then
+        local success, result = pcall(readfile, file)
+        return success and HttpService:JSONDecode(result) or nil
+    end
+    return nil
+end
+
+-- OrionLib Table
+local OrionLib = {}
+
+function OrionLib:MakeNotification(opts)
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "OrionNotifications"
+    screenGui.Parent = playerGui
+    
+    local notif = Instance.new("Frame")
+    notif.Size = UDim2.new(0, 250, 0, 80)
+    notif.Position = UDim2.new(0.5, -125, 0, -100)
+    notif.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+    notif.BorderSizePixel = 0
+    notif.Parent = screenGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = notif
+    
+    local notifTitle = Instance.new("TextLabel")
+    notifTitle.Size = UDim2.new(1, 0, 0.4, 0)
+    notifTitle.Text = opts.Name or "Notification"
+    notifTitle.TextColor3 = Color3.new(1, 1, 1)
+    notifTitle.BackgroundTransparency = 1
+    notifTitle.Font = Enum.Font.SourceSansBold
+    notifTitle.TextSize = 14
+    notifTitle.Parent = notif
+    
+    local notifContent = Instance.new("TextLabel")
+    notifContent.Size = UDim2.new(1, 0, 0.6, 0)
+    notifContent.Position = UDim2.new(0, 0, 0.4, 0)
+    notifContent.Text = opts.Content or ""
+    notifContent.TextColor3 = Color3.new(0.9, 0.9, 0.9)
+    notifContent.BackgroundTransparency = 1
+    notifContent.Font = Enum.Font.SourceSans
+    notifContent.TextSize = 12
+    notifContent.TextWrapped = true
+    notifContent.Parent = notif
+    
+    TweenService:Create(notif, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {Position = UDim2.new(0.5, -125, 0, 10)}):Play()
+    
+    spawn(function()
+        wait(opts.Time or 5)
+        TweenService:Create(notif, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {Position = UDim2.new(0.5, -125, 0, -100)}):Play()
+        wait(0.5)
+        notif:Destroy()
+        screenGui:Destroy()
+    end)
+end
+
+function OrionLib:MakeWindow(opts)
+    local window = {}
+    local configFolder = opts.ConfigFolder or "OrionTest"
+    local configFile = configFolder .. "/" .. player.Name .. "_config.json"
+    
+    if opts.SaveConfig then
+        local loaded = safeReadFile(configFile)
+        if loaded then configData = loaded end
+        safeMakeFolder(configFolder)
+    end
+    
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "OrionHub"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = playerGui
+    
+    local mainWindow = Instance.new("Frame")
+    mainWindow.Name = "MainWindow"
+    mainWindow.Size = UDim2.new(0, 300, 0, 350)
+    mainWindow.Position = configData.windowPos or UDim2.new(0, 10, 0, 10)
+    mainWindow.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+    mainWindow.BorderSizePixel = 0
+    mainWindow.Parent = screenGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = mainWindow
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, 0, 0, 30)
+    titleLabel.Text = opts.Name or "Orion Window"
+    titleLabel.TextColor3 = Color3.new(1, 1, 1)
+    titleLabel.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+    titleLabel.Font = Enum.Font.SourceSansBold
+    titleLabel.TextSize = 16
+    titleLabel.Parent = mainWindow
+    
+    makeDraggable(mainWindow)
+    
+    local tabButtons = Instance.new("Frame")
+    tabButtons.Size = UDim2.new(1, 0, 0, 30)
+    tabButtons.Position = UDim2.new(0, 0, 0, 30)
+    tabButtons.BackgroundTransparency = 1
+    tabButtons.Parent = mainWindow
+    
+    local contentFrame = Instance.new("ScrollingFrame")
+    contentFrame.Size = UDim2.new(1, 0, 1, -60)
+    contentFrame.Position = UDim2.new(0, 0, 0, 60)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.ScrollBarThickness = 6
+    contentFrame.Parent = mainWindow
+    
+    local tabs = {}
+    
+    function window:MakeTab(tabOpts)
+        local tab = {}
+        local tabBtn = Instance.new("TextButton")
+        tabBtn.Size = UDim2.new(0, 100 / (#tabs + 1), 1, 0)
+        tabBtn.Position = UDim2.new(0, (#tabs * 100), 0, 0)
+        tabBtn.Text = tabOpts.Name or "Tab"
+        tabBtn.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3)
+        tabBtn.TextColor3 = Color3.new(1, 1, 1)
+        tabBtn.Font = Enum.Font.SourceSans
+        tabBtn.TextSize = 12
+        tabBtn.Parent = tabButtons
+        tabBtn.MouseButton1Click:Connect(function()
+            for _, t in pairs(tabs) do
+                t.content.Visible = false
+                t.button.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3)
+            end
+            tab.content.Visible = true
+            tabBtn.BackgroundColor3 = Color3.new(0.4, 0.4, 0.4)
+            contentFrame.CanvasSize = UDim2.new(0, 0, 0, (#tab.content:GetChildren() or 1) * 40)
+        end)
+        
+        local tabContent = Instance.new("Frame")
+        tabContent.Name = tabOpts.Name .. "Content"
+        tabContent.Size = UDim2.new(1, 0, 1, 0)
+        tabContent.BackgroundTransparency = 1
+        tabContent.Visible = (#tabs == 0)
+        tabContent.Parent = contentFrame
+        
+        if #tabs == 0 then
+            tabBtn.BackgroundColor3 = Color3.new(0.4, 0.4, 0.4)
+        end
+        
+        tabs[#tabs + 1] = {button = tabBtn, content = tabContent}
+        
+        local yPos = 0
+        function tab:AddSection(secOpts)
+            local sectionLabel = Instance.new("TextLabel")
+            sectionLabel.Size = UDim2.new(1, 0, 0, 20)
+            sectionLabel.Position = UDim2.new(0, 0, 0, yPos)
+            sectionLabel.Text = secOpts.Name or "Section"
+            sectionLabel.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+            sectionLabel.BackgroundTransparency = 1
+            sectionLabel.Font = Enum.Font.SourceSans
+            sectionLabel.TextSize = 14
+            sectionLabel.Parent = tabContent
+            yPos = yPos + 25
+        end
+        
+        function tab:AddButton(btnOpts)
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1, -20, 0, 30)
+            btn.Position = UDim2.new(0, 10, 0, yPos)
+            btn.Text = btnOpts.Name or "Button"
+            btn.TextColor3 = Color3.new(1, 1, 1)
+            btn.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3)
+            btn.Font = Enum.Font.SourceSans
+            btn.TextSize = 14
+            btn.Parent = tabContent
+            btn.MouseButton1Click:Connect(btnOpts.Callback or function() end)
+            yPos = yPos + 40
+        end
+        
+        function tab:AddToggle(tglOpts)
+            local toggleFrame = Instance.new("Frame")
+            toggleFrame.Size = UDim2.new(1, -20, 0, 30)
+            toggleFrame.Position = UDim2.new(0, 10, 0, yPos)
+            toggleFrame.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+            toggleFrame.Parent = tabContent
+            
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(0.7, 0, 1, 0)
+            label.Text = tglOpts.Name or "Toggle"
+            label.TextColor3 = Color3.new(1, 1, 1)
+            label.BackgroundTransparency = 1
+            label.Parent = toggleFrame
+            
+            local toggleBtn = Instance.new("TextButton")
+            toggleBtn.Size = UDim2.new(0.3, 0, 1, 0)
+            toggleBtn.Position = UDim2.new(0.7, 0, 0, 0)
+            toggleBtn.Text = "OFF"
+            toggleBtn.BackgroundColor3 = Color3.new(1, 0, 0)
+            toggleBtn.TextColor3 = Color3.new(1, 1, 1)
+            toggleBtn.Parent = toggleFrame
+            
+            local enabled = false
+            toggleBtn.MouseButton1Click:Connect(function()
+                enabled = not enabled
+                toggleBtn.Text = enabled and "ON" or "OFF"
+                toggleBtn.BackgroundColor3 = enabled and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
+                if tglOpts.Callback then tglOpts.Callback(enabled) end
+            end)
+            yPos = yPos + 40
+        end
+        
+        contentFrame.CanvasSize = UDim2.new(0, 0, 0, 200)
+        return tab
+    end
+    
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 60, 0, 20)
+    closeBtn.Position = UDim2.new(1, -70, 0, 5)
+    closeBtn.Text = "Close"
+    closeBtn.BackgroundColor3 = Color3.new(0.8, 0.2, 0.2)
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.Parent = mainWindow
+    closeBtn.MouseButton1Click:Connect(function()
+        if opts.SaveConfig then
+            configData.windowPos = {
+                X = {Scale = mainWindow.Position.X.Scale, Offset = mainWindow.Position.X.Offset},
+                Y = {Scale = mainWindow.Position.Y.Scale, Offset = mainWindow.Position.Y.Offset}
+            }
+            safeWriteFile(configFile, configData)
+        end
+        if opts.CloseCallback then opts.CloseCallback() end
+        screenGui:Destroy()
+    end)
+    
+    mainWindow.BackgroundTransparency = 1
+    TweenService:Create(mainWindow, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {BackgroundTransparency = 0}):Play()
+    
+    return window
+end
+
 return OrionLib                if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
                 end
