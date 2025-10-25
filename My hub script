@@ -1,20 +1,68 @@
--- OrionLib Clone by Grok (Based on shlexware/Orion - Studio/Executor Compatible)
+-- My Hub Script (Standalone Custom Lib - No External Libs)
+-- Author: Anhvudz (Custom Draggable UI)
 -- Load with: loadstring(game:HttpGet("https://raw.githubusercontent.com/Anhvudz/Scripts/refs/heads/main/My%20hub%20script"))()
--- Supports: MakeWindow, MakeTab, AddSection, AddButton, AddToggle, MakeNotification, SaveConfig (File I/O if available)
+-- API: MyHub:CreateWindow(name), :NewTab(name), :NewSection(name), :NewButton(name, callback), :NewToggle(name, callback), :Notify(title, text, time)
+-- Features: Draggable window, tabs/sections, buttons/toggles, notifications, RightShift toggle.
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local HttpService = game:GetService("HttpService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Exploit File I/O Detection (Safe Fallback)
-local hasFileIO = pcall(function() return writefile end)
-local configData = {windowPos = {X = {Scale = 0, Offset = 10}, Y = {Scale = 0, Offset = 10}}}
+-- MyHub Table
+local MyHub = {}
 
--- Draggable GUI Helper
+-- Notification Function
+function MyHub:Notify(title, text, time)
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "MyHubNotifications"
+    screenGui.Parent = playerGui
+    
+    local notif = Instance.new("Frame")
+    notif.Size = UDim2.new(0, 250, 0, 80)
+    notif.Position = UDim2.new(0.5, -125, 0, -100)
+    notif.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+    notif.BorderSizePixel = 0
+    notif.Parent = screenGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = notif
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, 0, 0.4, 0)
+    titleLabel.Text = title
+    titleLabel.TextColor3 = Color3.new(1, 1, 1)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Font = Enum.Font.SourceSansBold
+    titleLabel.TextSize = 14
+    titleLabel.Parent = notif
+    
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, 0, 0.6, 0)
+    textLabel.Position = UDim2.new(0, 0, 0.4, 0)
+    textLabel.Text = text
+    textLabel.TextColor3 = Color3.new(0.9, 0.9, 0.9)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Font = Enum.Font.SourceSans
+    textLabel.TextSize = 12
+    textLabel.TextWrapped = true
+    textLabel.Parent = notif
+    
+    TweenService:Create(notif, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {Position = UDim2.new(0.5, -125, 0, 10)}):Play()
+    
+    spawn(function()
+        wait(time or 5)
+        TweenService:Create(notif, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {Position = UDim2.new(0.5, -125, 0, -100)}):Play()
+        wait(0.5)
+        notif:Destroy()
+        screenGui:Destroy()
+    end)
+end
+
+-- Draggable Helper
 local function makeDraggable(frame)
     local dragging = false
     local dragStart = nil
@@ -35,6 +83,178 @@ local function makeDraggable(frame)
                     dragging = false
                 end
             end)
+        end
+    end)
+    
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
+            update(input)
+        end
+    end)
+end
+
+-- CreateWindow
+function MyHub:CreateWindow(name)
+    local api = {}
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "MyHubGUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = playerGui
+    
+    local mainWindow = Instance.new("Frame")
+    mainWindow.Name = "MainWindow"
+    mainWindow.Size = UDim2.new(0, 300, 0, 350)
+    mainWindow.Position = UDim2.new(0, 10, 0, 10)
+    mainWindow.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+    mainWindow.BorderSizePixel = 0
+    mainWindow.Parent = screenGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = mainWindow
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, 0, 0, 30)
+    titleLabel.Text = name or "My Hub"
+    titleLabel.TextColor3 = Color3.new(1, 1, 1)
+    titleLabel.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+    titleLabel.Font = Enum.Font.SourceSansBold
+    titleLabel.TextSize = 16
+    titleLabel.Parent = mainWindow
+    
+    makeDraggable(mainWindow)
+    
+    local tabButtons = Instance.new("Frame")
+    tabButtons.Size = UDim2.new(1, 0, 0, 30)
+    tabButtons.Position = UDim2.new(0, 0, 0, 30)
+    tabButtons.BackgroundTransparency = 1
+    tabButtons.Parent = mainWindow
+    
+    local contentFrame = Instance.new("ScrollingFrame")
+    contentFrame.Size = UDim2.new(1, 0, 1, -60)
+    contentFrame.Position = UDim2.new(0, 0, 0, 60)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.ScrollBarThickness = 6
+    contentFrame.Parent = mainWindow
+    
+    local tabs = {}
+    local yPosTracker = {}
+    
+    function api:NewTab(name)
+        local tabApi = {}
+        local tabBtn = Instance.new("TextButton")
+        tabBtn.Size = UDim2.new(0, 100 / (#tabs + 1), 1, 0)
+        tabBtn.Position = UDim2.new(0, (#tabs * 100), 0, 0)
+        tabBtn.Text = name or "Tab"
+        tabBtn.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3)
+        tabBtn.TextColor3 = Color3.new(1, 1, 1)
+        tabBtn.Font = Enum.Font.SourceSans
+        tabBtn.TextSize = 12
+        tabBtn.Parent = tabButtons
+        tabBtn.MouseButton1Click:Connect(function()
+            for _, t in pairs(tabs) do
+                t.content.Visible = false
+                t.button.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3)
+            end
+            tab.content.Visible = true
+            tabBtn.BackgroundColor3 = Color3.new(0.4, 0.4, 0.4)
+            contentFrame.CanvasSize = UDim2.new(0, 0, 0, yPosTracker[name or "default"] or 200)
+        end)
+        
+        local tabContent = Instance.new("Frame")
+        tabContent.Name = (name or "Tab") .. "Content"
+        tabContent.Size = UDim2.new(1, 0, 1, 0)
+        tabContent.BackgroundTransparency = 1
+        tabContent.Visible = (#tabs == 0)
+        tabContent.Parent = contentFrame
+        
+        if #tabs == 0 then
+            tabBtn.BackgroundColor3 = Color3.new(0.4, 0.4, 0.4)
+        end
+        
+        tabs[#tabs + 1] = {button = tabBtn, content = tabContent}
+        yPosTracker[name or "default"] = 0
+        
+        local sectionApi = {}
+        function sectionApi:NewSection(name)
+            local sectionLabel = Instance.new("TextLabel")
+            sectionLabel.Size = UDim2.new(1, 0, 0, 20)
+            sectionLabel.Position = UDim2.new(0, 0, 0, yPosTracker[name or "default"])
+            sectionLabel.Text = name or "Section"
+            sectionLabel.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+            sectionLabel.BackgroundTransparency = 1
+            sectionLabel.Font = Enum.Font.SourceSans
+            sectionLabel.TextSize = 14
+            sectionLabel.Parent = tabContent
+            yPosTracker[name or "default"] = yPosTracker[name or "default"] + 25
+        end
+        
+        function sectionApi:NewButton(name, callback)
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1, -20, 0, 30)
+            btn.Position = UDim2.new(0, 10, 0, yPosTracker[name or "default"])
+            btn.Text = name or "Button"
+            btn.TextColor3 = Color3.new(1, 1, 1)
+            btn.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3)
+            btn.Font = Enum.Font.SourceSans
+            btn.TextSize = 14
+            btn.Parent = tabContent
+            btn.MouseButton1Click:Connect(callback or function() end)
+            yPosTracker[name or "default"] = yPosTracker[name or "default"] + 40
+            contentFrame.CanvasSize = UDim2.new(0, 0, 0, yPosTracker[name or "default"])
+        end
+        
+        function sectionApi:NewToggle(name, callback)
+            local toggleFrame = Instance.new("Frame")
+            toggleFrame.Size = UDim2.new(1, -20, 0, 30)
+            toggleFrame.Position = UDim2.new(0, 10, 0, yPosTracker[name or "default"])
+            toggleFrame.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+            toggleFrame.Parent = tabContent
+            
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(0.7, 0, 1, 0)
+            label.Text = name or "Toggle"
+            label.TextColor3 = Color3.new(1, 1, 1)
+            label.BackgroundTransparency = 1
+            label.Parent = toggleFrame
+            
+            local toggleBtn = Instance.new("TextButton")
+            toggleBtn.Size = UDim2.new(0.3, 0, 1, 0)
+            toggleBtn.Position = UDim2.new(0.7, 0, 0, 0)
+            toggleBtn.Text = "OFF"
+            toggleBtn.BackgroundColor3 = Color3.new(1, 0, 0)
+            toggleBtn.TextColor3 = Color3.new(1, 1, 1)
+            toggleBtn.Parent = toggleFrame
+            
+            local enabled = false
+            toggleBtn.MouseButton1Click:Connect(function()
+                enabled = not enabled
+                toggleBtn.Text = enabled and "ON" or "OFF"
+                toggleBtn.BackgroundColor3 = enabled and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
+                if callback then callback(enabled) end
+            end)
+            yPosTracker[name or "default"] = yPosTracker[name or "default"] + 40
+            contentFrame.CanvasSize = UDim2.new(0, 0, 0, yPosTracker[name or "default"])
+        end
+        
+        return sectionApi
+    end
+    
+    return tabApi
+end
+
+-- Global Toggle (RightShift)
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        screenGui.Enabled = not screenGui.Enabled
+    end
+end)
+
+-- Fade-In
+mainWindow.BackgroundTransparency = 1
+TweenService:Create(mainWindow, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {BackgroundTransparency = 0}):Play()
+
+return api            end)
         end
     end)
     
