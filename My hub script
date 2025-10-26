@@ -171,7 +171,20 @@ local function addButtonEffects(btn)
     end)
 end
 
+-- Notification History Storage
+MyHub.NotificationHistory = {}
+
 function MyHub:Notify(title, text, time, imageId)
+    -- Add to history
+    table.insert(MyHub.NotificationHistory, 1, {
+        title = tostring(title),
+        text = tostring(text),
+        time = os.date("%H:%M:%S")
+    })
+    if #MyHub.NotificationHistory > 50 then
+        table.remove(MyHub.NotificationHistory)
+    end
+    
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "MyHubNotifications"
     screenGui.ResetOnSpawn = false
@@ -466,9 +479,21 @@ function MyHub:CreateWindow(config)
     
     local minimized, fullSize, minSize = false, UDim2.new(0,400,0,300), UDim2.new(0,400,0,30)
     
-    closeBtn.MouseButton1Click:Connect(function() 
+    closeBtn.MouseButton1Click:Connect(function()
         safeWriteFile(configFile, configData)
-        screenGui:Destroy() 
+        
+        -- Animated close
+        TweenService:Create(mainWindow, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0),
+            Position = UDim2.new(0.5, 0, 0.5, 0)
+        }):Play()
+        
+        TweenService:Create(mainWindow, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+            BackgroundTransparency = 1
+        }):Play()
+        
+        wait(0.4)
+        screenGui:Destroy()
     end)
     
     minBtn.MouseButton1Click:Connect(function()
@@ -936,6 +961,271 @@ function MyHub:CreateWindow(config)
                 tab.yPos = tab.yPos + 40
                 if activeTab == tab then contentFrame.CanvasSize = UDim2.new(0,0,0, math.max(tab.yPos, 200)) end
                 return keybindBtn
+            end
+            
+            function SectionApi:NewColorPicker(config)
+                local colorName = tostring(config.Name or "Color Picker")
+                local default = config.CurrentValue or Color3.fromRGB(255, 255, 255)
+                local callback = config.Callback or function() end
+                local configKey = config.Flag
+                if configKey and configData.colors and configData.colors[configKey] then
+                    local saved = configData.colors[configKey]
+                    default = Color3.fromRGB(saved.R, saved.G, saved.B)
+                end
+                
+                local colorFrame = Instance.new("Frame")
+                colorFrame.Size = UDim2.new(1,-20,0,30)
+                colorFrame.Position = UDim2.new(0,10,0, tab.yPos)
+                colorFrame.BackgroundColor3 = CurrentTheme.ElementBackground
+                colorFrame.BorderSizePixel = 0
+                colorFrame.Parent = tab.content
+                
+                local frameCorner = Instance.new("UICorner")
+                frameCorner.CornerRadius = UDim.new(0,4)
+                frameCorner.Parent = colorFrame
+                
+                local label = Instance.new("TextLabel")
+                label.Size = UDim2.new(0.7,0,1,0)
+                label.Text = colorName
+                label.TextColor3 = CurrentTheme.TextColor
+                label.BackgroundTransparency = 1
+                label.Font = Enum.Font.SourceSans
+                label.TextSize = 14
+                label.TextXAlignment = Enum.TextXAlignment.Left
+                label.Parent = colorFrame
+                
+                local colorPreview = Instance.new("Frame")
+                colorPreview.Size = UDim2.new(0, 60, 0, 20)
+                colorPreview.Position = UDim2.new(1, -70, 0.5, -10)
+                colorPreview.BackgroundColor3 = default
+                colorPreview.BorderSizePixel = 0
+                colorPreview.Parent = colorFrame
+                
+                local previewCorner = Instance.new("UICorner")
+                previewCorner.CornerRadius = UDim.new(0, 4)
+                previewCorner.Parent = colorPreview
+                
+                local colorBtn = Instance.new("TextButton")
+                colorBtn.Size = UDim2.new(1, 0, 1, 0)
+                colorBtn.BackgroundTransparency = 1
+                colorBtn.Text = ""
+                colorBtn.Parent = colorPreview
+                
+                local pickerOpen = false
+                
+                colorBtn.MouseButton1Click:Connect(function()
+                    if pickerOpen then return end
+                    pickerOpen = true
+                    
+                    local picker = Instance.new("Frame")
+                    picker.Size = UDim2.new(0, 200, 0, 220)
+                    picker.Position = UDim2.new(0, 0, 1, 5)
+                    picker.BackgroundColor3 = CurrentTheme.Background
+                    picker.BorderSizePixel = 0
+                    picker.ZIndex = 100
+                    picker.Parent = colorFrame
+                    
+                    local pickerCorner = Instance.new("UICorner")
+                    pickerCorner.CornerRadius = UDim.new(0, 6)
+                    pickerCorner.Parent = picker
+                    
+                    -- RGB Sliders
+                    local currentColor = default
+                    local r, g, b = math.floor(currentColor.R * 255), math.floor(currentColor.G * 255), math.floor(currentColor.B * 255)
+                    
+                    local function createColorSlider(name, yPos, defaultVal, color)
+                        local sliderLabel = Instance.new("TextLabel")
+                        sliderLabel.Size = UDim2.new(1, -10, 0, 20)
+                        sliderLabel.Position = UDim2.new(0, 5, 0, yPos)
+                        sliderLabel.Text = name .. ": " .. defaultVal
+                        sliderLabel.TextColor3 = CurrentTheme.TextColor
+                        sliderLabel.BackgroundTransparency = 1
+                        sliderLabel.Font = Enum.Font.SourceSans
+                        sliderLabel.TextSize = 12
+                        sliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+                        sliderLabel.Parent = picker
+                        
+                        local sliderBg = Instance.new("Frame")
+                        sliderBg.Size = UDim2.new(1, -10, 0, 8)
+                        sliderBg.Position = UDim2.new(0, 5, 0, yPos + 20)
+                        sliderBg.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                        sliderBg.BorderSizePixel = 0
+                        sliderBg.Parent = picker
+                        
+                        local sliderCorner = Instance.new("UICorner")
+                        sliderCorner.CornerRadius = UDim.new(1, 0)
+                        sliderCorner.Parent = sliderBg
+                        
+                        local sliderFill = Instance.new("Frame")
+                        sliderFill.Size = UDim2.new(defaultVal / 255, 0, 1, 0)
+                        sliderFill.BackgroundColor3 = color
+                        sliderFill.BorderSizePixel = 0
+                        sliderFill.Parent = sliderBg
+                        
+                        local fillCorner = Instance.new("UICorner")
+                        fillCorner.CornerRadius = UDim.new(1, 0)
+                        fillCorner.Parent = sliderFill
+                        
+                        return sliderLabel, sliderBg, sliderFill
+                    end
+                    
+                    local rLabel, rBg, rFill = createColorSlider("R", 10, r, Color3.fromRGB(255, 0, 0))
+                    local gLabel, gBg, gFill = createColorSlider("G", 50, g, Color3.fromRGB(0, 255, 0))
+                    local bLabel, bBg, bFill = createColorSlider("B", 90, b, Color3.fromRGB(0, 0, 255))
+                    
+                    local function updateColor()
+                        local newColor = Color3.fromRGB(r, g, b)
+                        colorPreview.BackgroundColor3 = newColor
+                        pcall(callback, newColor)
+                        if configKey then
+                            if not configData.colors then configData.colors = {} end
+                            configData.colors[configKey] = {R = r, G = g, B = b}
+                            safeWriteFile(configFile, configData)
+                        end
+                    end
+                    
+                    local function makeColorSlider(bg, fill, label, name, getValue, setValue)
+                        local dragging = false
+                        bg.InputBegan:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                                dragging = true
+                            end
+                        end)
+                        
+                        UserInputService.InputEnded:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                                dragging = false
+                            end
+                        end)
+                        
+                        UserInputService.InputChanged:Connect(function(input)
+                            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                                local rel = math.clamp((input.Position.X - bg.AbsolutePosition.X) / bg.AbsoluteSize.X, 0, 1)
+                                local val = math.floor(rel * 255)
+                                setValue(val)
+                                fill.Size = UDim2.new(rel, 0, 1, 0)
+                                label.Text = name .. ": " .. val
+                                updateColor()
+                            end
+                        end)
+                    end
+                    
+                    makeColorSlider(rBg, rFill, rLabel, "R", function() return r end, function(v) r = v end)
+                    makeColorSlider(gBg, gFill, gLabel, "G", function() return g end, function(v) g = v end)
+                    makeColorSlider(bBg, bFill, bLabel, "B", function() return b end, function(v) b = v end)
+                    
+                    local closeBtn = Instance.new("TextButton")
+                    closeBtn.Size = UDim2.new(1, -10, 0, 30)
+                    closeBtn.Position = UDim2.new(0, 5, 1, -35)
+                    closeBtn.Text = "Done"
+                    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+                    closeBtn.BackgroundColor3 = Color3.fromRGB(52, 199, 89)
+                    closeBtn.Font = Enum.Font.SourceSansBold
+                    closeBtn.TextSize = 14
+                    closeBtn.BorderSizePixel = 0
+                    closeBtn.Parent = picker
+                    
+                    local closeBtnCorner = Instance.new("UICorner")
+                    closeBtnCorner.CornerRadius = UDim.new(0, 4)
+                    closeBtnCorner.Parent = closeBtn
+                    
+                    closeBtn.MouseButton1Click:Connect(function()
+                        picker:Destroy()
+                        pickerOpen = false
+                    end)
+                end)
+                
+                tab.yPos = tab.yPos + 40
+                if activeTab == tab then contentFrame.CanvasSize = UDim2.new(0,0,0, math.max(tab.yPos, 200)) end
+                return colorFrame
+            end
+            
+            function SectionApi:NewLabel(config)
+                local labelText = tostring(config.Name or "Label")
+                
+                local labelFrame = Instance.new("Frame")
+                labelFrame.Size = UDim2.new(1,-20,0,25)
+                labelFrame.Position = UDim2.new(0,10,0, tab.yPos)
+                labelFrame.BackgroundColor3 = CurrentTheme.ElementBackground
+                labelFrame.BorderSizePixel = 0
+                labelFrame.Parent = tab.content
+                
+                local frameCorner = Instance.new("UICorner")
+                frameCorner.CornerRadius = UDim.new(0,4)
+                frameCorner.Parent = labelFrame
+                
+                local label = Instance.new("TextLabel")
+                label.Size = UDim2.new(1,-10,1,0)
+                label.Position = UDim2.new(0,5,0,0)
+                label.Text = labelText
+                label.TextColor3 = CurrentTheme.TextColor
+                label.BackgroundTransparency = 1
+                label.Font = Enum.Font.SourceSans
+                label.TextSize = 13
+                label.TextXAlignment = Enum.TextXAlignment.Left
+                label.TextWrapped = true
+                label.Parent = labelFrame
+                
+                tab.yPos = tab.yPos + 30
+                if activeTab == tab then contentFrame.CanvasSize = UDim2.new(0,0,0, math.max(tab.yPos, 200)) end
+                
+                return {
+                    SetText = function(self, text)
+                        label.Text = tostring(text)
+                    end
+                }
+            end
+            
+            function SectionApi:NewParagraph(config)
+                local title = tostring(config.Title or "Paragraph")
+                local content = tostring(config.Content or "")
+                
+                local paraFrame = Instance.new("Frame")
+                paraFrame.Size = UDim2.new(1,-20,0,80)
+                paraFrame.Position = UDim2.new(0,10,0, tab.yPos)
+                paraFrame.BackgroundColor3 = CurrentTheme.ElementBackground
+                paraFrame.BorderSizePixel = 0
+                paraFrame.Parent = tab.content
+                
+                local frameCorner = Instance.new("UICorner")
+                frameCorner.CornerRadius = UDim.new(0,4)
+                frameCorner.Parent = paraFrame
+                
+                local titleLabel = Instance.new("TextLabel")
+                titleLabel.Size = UDim2.new(1,-10,0,20)
+                titleLabel.Position = UDim2.new(0,5,0,5)
+                titleLabel.Text = title
+                titleLabel.TextColor3 = CurrentTheme.TextColor
+                titleLabel.BackgroundTransparency = 1
+                titleLabel.Font = Enum.Font.SourceSansBold
+                titleLabel.TextSize = 14
+                titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+                titleLabel.Parent = paraFrame
+                
+                local contentLabel = Instance.new("TextLabel")
+                contentLabel.Size = UDim2.new(1,-10,1,-30)
+                contentLabel.Position = UDim2.new(0,5,0,25)
+                contentLabel.Text = content
+                contentLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+                contentLabel.BackgroundTransparency = 1
+                contentLabel.Font = Enum.Font.SourceSans
+                contentLabel.TextSize = 12
+                contentLabel.TextXAlignment = Enum.TextXAlignment.Left
+                contentLabel.TextYAlignment = Enum.TextYAlignment.Top
+                contentLabel.TextWrapped = true
+                contentLabel.Parent = paraFrame
+                
+                tab.yPos = tab.yPos + 90
+                if activeTab == tab then contentFrame.CanvasSize = UDim2.new(0,0,0, math.max(tab.yPos, 200)) end
+                
+                return {
+                    SetTitle = function(self, text)
+                        titleLabel.Text = tostring(text)
+                    end,
+                    SetContent = function(self, text)
+                        contentLabel.Text = tostring(text)
+                    end
+                }
             end
             
             function SectionApi:NewInput(config)
