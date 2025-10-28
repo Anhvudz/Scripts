@@ -1227,6 +1227,437 @@ function MyHub:CreateWindow(config)
                     end
                 }
             end
+
+function SectionApi:NewRemoteHook(config)
+    local remoteName = tostring(config.RemoteName or "Remote")
+    local defaultValue = config.DefaultValue or 999
+    local callback = config.Callback or function() end
+    
+    local hookFrame = Instance.new("Frame")
+    hookFrame.Size = UDim2.new(1,-20,0,90)
+    hookFrame.Position = UDim2.new(0,10,0, tab.yPos)
+    hookFrame.BackgroundColor3 = CurrentTheme.ElementBackground
+    hookFrame.BorderSizePixel = 0
+    hookFrame.Parent = tab.content
+    
+    local frameCorner = Instance.new("UICorner")
+    frameCorner.CornerRadius = UDim.new(0,4)
+    frameCorner.Parent = hookFrame
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1,-10,0,20)
+    label.Position = UDim2.new(0,5,0,5)
+    label.Text = "🪝 Hook: " .. remoteName
+    label.TextColor3 = CurrentTheme.TextColor
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.SourceSansBold
+    label.TextSize = 13
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = hookFrame
+    
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(1,-10,0,15)
+    statusLabel.Position = UDim2.new(0,5,0,25)
+    statusLabel.Text = "Status: Inactive | Calls: 0"
+    statusLabel.TextColor3 = Color3.fromRGB(150,150,150)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Font = Enum.Font.SourceSans
+    statusLabel.TextSize = 11
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statusLabel.Parent = hookFrame
+    
+    local valueInput = Instance.new("TextBox")
+    valueInput.Size = UDim2.new(0.4,0,0,25)
+    valueInput.Position = UDim2.new(0,5,0,45)
+    valueInput.Text = tostring(defaultValue)
+    valueInput.PlaceholderText = "Value..."
+    valueInput.TextColor3 = CurrentTheme.TextColor
+    valueInput.PlaceholderColor3 = CurrentTheme.PlaceholderColor
+    valueInput.BackgroundColor3 = CurrentTheme.InputBackground
+    valueInput.BorderSizePixel = 0
+    valueInput.Font = Enum.Font.SourceSans
+    valueInput.TextSize = 12
+    valueInput.Parent = hookFrame
+    
+    local inputCorner = Instance.new("UICorner")
+    inputCorner.CornerRadius = UDim.new(0,4)
+    inputCorner.Parent = valueInput
+    
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Size = UDim2.new(0.28,-2.5,0,25)
+    toggleBtn.Position = UDim2.new(0.41,2.5,0,45)
+    toggleBtn.Text = "Enable"
+    toggleBtn.TextColor3 = Color3.new(1,1,1)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(76,175,80)
+    toggleBtn.Font = Enum.Font.SourceSansBold
+    toggleBtn.TextSize = 12
+    toggleBtn.BorderSizePixel = 0
+    toggleBtn.Parent = hookFrame
+    
+    addButtonEffects(toggleBtn)
+    
+    local toggleCorner = Instance.new("UICorner")
+    toggleCorner.CornerRadius = UDim.new(0,4)
+    toggleCorner.Parent = toggleBtn
+    
+    local logBtn = Instance.new("TextButton")
+    logBtn.Size = UDim2.new(0.28,-2.5,0,25)
+    toggleBtn.Position = UDim2.new(0.72,2.5,0,45)
+    logBtn.Text = "Log"
+    logBtn.TextColor3 = Color3.new(1,1,1)
+    logBtn.BackgroundColor3 = Color3.fromRGB(33,150,243)
+    logBtn.Font = Enum.Font.SourceSansBold
+    logBtn.TextSize = 12
+    logBtn.BorderSizePixel = 0
+    logBtn.Parent = hookFrame
+    
+    addButtonEffects(logBtn)
+    
+    local logCorner = Instance.new("UICorner")
+    logCorner.CornerRadius = UDim.new(0,4)
+    logCorner.Parent = logBtn
+    
+    local hooked = false
+    local callCount = 0
+    local hookConnection = nil
+    local callLog = {}
+    
+    toggleBtn.MouseButton1Click:Connect(function()
+        hooked = not hooked
+        
+        if hooked then
+            toggleBtn.Text = "Disable"
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(244,67,54)
+            statusLabel.Text = "Status: ✅ Active | Calls: " .. callCount
+            statusLabel.TextColor3 = Color3.fromRGB(76,175,80)
+            
+            local forceValue = tonumber(valueInput.Text) or defaultValue
+            
+            -- Create hook
+            if not _G.MyHubHooks then _G.MyHubHooks = {} end
+            
+            local oldNamecall
+            oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+                local method = getnamecallmethod()
+                local args = {...}
+                
+                if (method == "FireServer" or method == "InvokeServer") and self.Name == remoteName then
+                    callCount = callCount + 1
+                    statusLabel.Text = "Status: ✅ Active | Calls: " .. callCount
+                    
+                    local originalValue = args[1]
+                    args[1] = forceValue
+                    
+                    table.insert(callLog, 1, {
+                        Time = os.date("%H:%M:%S"),
+                        Original = tostring(originalValue),
+                        Forced = tostring(forceValue)
+                    })
+                    if #callLog > 20 then table.remove(callLog) end
+                    
+                    print("🪝", remoteName, "| Original:", originalValue, "→ Forced:", forceValue)
+                end
+                
+                return oldNamecall(self, unpack(args))
+            end)
+            
+            _G.MyHubHooks[remoteName] = oldNamecall
+            hookConnection = oldNamecall
+            
+            pcall(callback, true, forceValue)
+            MyHub:Notify("Hook Active", remoteName .. " = " .. forceValue, 2)
+        else
+            toggleBtn.Text = "Enable"
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(76,175,80)
+            statusLabel.Text = "Status: Inactive | Calls: " .. callCount
+            statusLabel.TextColor3 = Color3.fromRGB(150,150,150)
+            
+            if hookConnection and _G.MyHubHooks and _G.MyHubHooks[remoteName] then
+                hookmetamethod(game, "__namecall", _G.MyHubHooks[remoteName])
+                _G.MyHubHooks[remoteName] = nil
+            end
+            
+            pcall(callback, false)
+            MyHub:Notify("Hook Disabled", remoteName, 2)
+        end
+    end)
+    
+    logBtn.MouseButton1Click:Connect(function()
+        if #callLog == 0 then
+            MyHub:Notify("Log Empty", "No calls recorded yet", 2)
+        else
+            local logText = ""
+            for i = 1, math.min(5, #callLog) do
+                logText = logText .. callLog[i].Time .. ": " .. callLog[i].Original .. " → " .. callLog[i].Forced .. "\n"
+            end
+            MyHub:Notify("Recent Calls", logText, 5)
+        end
+    end)
+    
+    tab.yPos = tab.yPos + 100
+    if activeTab == tab then contentFrame.CanvasSize = UDim2.new(0,0,0, math.max(tab.yPos, 200)) end
+    
+    return {
+        SetValue = function(self, value)
+            valueInput.Text = tostring(value)
+        end,
+        GetCallCount = function(self)
+            return callCount
+        end,
+        GetLog = function(self)
+            return callLog
+        end
+    }
+end
+
+function SectionApi:NewRemoteLogger()
+    local loggerFrame = Instance.new("Frame")
+    loggerFrame.Size = UDim2.new(1,-20,0,250)
+    loggerFrame.Position = UDim2.new(0,10,0, tab.yPos)
+    loggerFrame.BackgroundColor3 = CurrentTheme.ElementBackground
+    loggerFrame.BorderSizePixel = 0
+    loggerFrame.Parent = tab.content
+    
+    local frameCorner = Instance.new("UICorner")
+    frameCorner.CornerRadius = UDim.new(0,4)
+    frameCorner.Parent = loggerFrame
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1,-10,0,25)
+    titleLabel.Position = UDim2.new(0,5,0,5)
+    titleLabel.Text = "📡 Remote Event Logger"
+    titleLabel.TextColor3 = CurrentTheme.TextColor
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Font = Enum.Font.SourceSansBold
+    titleLabel.TextSize = 14
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = loggerFrame
+    
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(1,-10,0,20)
+    statusLabel.Position = UDim2.new(0,5,0,30)
+    statusLabel.Text = "Status: Inactive | Total: 0"
+    statusLabel.TextColor3 = Color3.fromRGB(150,150,150)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Font = Enum.Font.SourceSans
+    statusLabel.TextSize = 11
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statusLabel.Parent = loggerFrame
+    
+    local scrollFrame = Instance.new("ScrollingFrame")
+    scrollFrame.Size = UDim2.new(1,-10,1,-100)
+    scrollFrame.Position = UDim2.new(0,5,0,55)
+    scrollFrame.BackgroundTransparency = 1
+    scrollFrame.ScrollBarThickness = 4
+    scrollFrame.BorderSizePixel = 0
+    scrollFrame.Parent = loggerFrame
+    
+    local buttonFrame = Instance.new("Frame")
+    buttonFrame.Size = UDim2.new(1,-10,0,30)
+    buttonFrame.Position = UDim2.new(0,5,1,-35)
+    buttonFrame.BackgroundTransparency = 1
+    buttonFrame.Parent = loggerFrame
+    
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Size = UDim2.new(0.32,0,1,0)
+    toggleBtn.Position = UDim2.new(0,0,0,0)
+    toggleBtn.Text = "Start"
+    toggleBtn.TextColor3 = Color3.new(1,1,1)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(76,175,80)
+    toggleBtn.Font = Enum.Font.SourceSansBold
+    toggleBtn.TextSize = 12
+    toggleBtn.BorderSizePixel = 0
+    toggleBtn.Parent = buttonFrame
+    
+    addButtonEffects(toggleBtn)
+    
+    local toggleCorner = Instance.new("UICorner")
+    toggleCorner.CornerRadius = UDim.new(0,4)
+    toggleCorner.Parent = toggleBtn
+    
+    local clearBtn = Instance.new("TextButton")
+    clearBtn.Size = UDim2.new(0.32,0,1,0)
+    clearBtn.Position = UDim2.new(0.34,0,0,0)
+    clearBtn.Text = "Clear"
+    clearBtn.TextColor3 = Color3.new(1,1,1)
+    clearBtn.BackgroundColor3 = Color3.fromRGB(255,152,0)
+    clearBtn.Font = Enum.Font.SourceSansBold
+    clearBtn.TextSize = 12
+    clearBtn.BorderSizePixel = 0
+    clearBtn.Parent = buttonFrame
+    
+    addButtonEffects(clearBtn)
+    
+    local clearCorner = Instance.new("UICorner")
+    clearCorner.CornerRadius = UDim.new(0,4)
+    clearCorner.Parent = clearBtn
+    
+    local saveBtn = Instance.new("TextButton")
+    saveBtn.Size = UDim2.new(0.32,0,1,0)
+    saveBtn.Position = UDim2.new(0.68,0,0,0)
+    saveBtn.Text = "Save"
+    saveBtn.TextColor3 = Color3.new(1,1,1)
+    saveBtn.BackgroundColor3 = Color3.fromRGB(33,150,243)
+    saveBtn.Font = Enum.Font.SourceSansBold
+    saveBtn.TextSize = 12
+    saveBtn.BorderSizePixel = 0
+    saveBtn.Parent = buttonFrame
+    
+    addButtonEffects(saveBtn)
+    
+    local saveCorner = Instance.new("UICorner")
+    saveCorner.CornerRadius = UDim.new(0,4)
+    saveCorner.Parent = saveBtn
+    
+    local logging = false
+    local totalCalls = 0
+    local remoteLogs = {}
+    local hookConnection = nil
+    
+    local function updateDisplay()
+        scrollFrame:ClearAllChildren()
+        local yPos = 0
+        
+        for i = 1, math.min(20, #remoteLogs) do
+            local log = remoteLogs[i]
+            
+            local logFrame = Instance.new("Frame")
+            logFrame.Size = UDim2.new(1,0,0,50)
+            logFrame.Position = UDim2.new(0,0,0,yPos)
+            logFrame.BackgroundColor3 = Color3.fromRGB(45,45,45)
+            logFrame.BorderSizePixel = 0
+            logFrame.Parent = scrollFrame
+            
+            local logCorner = Instance.new("UICorner")
+            logCorner.CornerRadius = UDim.new(0,4)
+            logCorner.Parent = logFrame
+            
+            local timeLabel = Instance.new("TextLabel")
+            timeLabel.Size = UDim2.new(0,55,0,15)
+            timeLabel.Position = UDim2.new(0,5,0,5)
+            timeLabel.Text = log.Time
+            timeLabel.TextColor3 = Color3.fromRGB(150,150,150)
+            timeLabel.BackgroundTransparency = 1
+            timeLabel.Font = Enum.Font.SourceSans
+            timeLabel.TextSize = 10
+            timeLabel.Parent = logFrame
+            
+            local remoteLabel = Instance.new("TextLabel")
+            remoteLabel.Size = UDim2.new(1,-65,0,20)
+            remoteLabel.Position = UDim2.new(0,65,0,2)
+            remoteLabel.Text = "📡 " .. log.Remote
+            remoteLabel.TextColor3 = CurrentTheme.TextColor
+            remoteLabel.BackgroundTransparency = 1
+            remoteLabel.Font = Enum.Font.SourceSansBold
+            remoteLabel.TextSize = 11
+            remoteLabel.TextXAlignment = Enum.TextXAlignment.Left
+            remoteLabel.TextTruncate = Enum.TextTruncate.AtEnd
+            remoteLabel.Parent = logFrame
+            
+            local argsLabel = Instance.new("TextLabel")
+            argsLabel.Size = UDim2.new(1,-10,0,25)
+            argsLabel.Position = UDim2.new(0,5,0,23)
+            argsLabel.Text = "Args: " .. log.Args
+            argsLabel.TextColor3 = Color3.fromRGB(180,180,180)
+            argsLabel.BackgroundTransparency = 1
+            argsLabel.Font = Enum.Font.SourceSans
+            argsLabel.TextSize = 10
+            argsLabel.TextXAlignment = Enum.TextXAlignment.Left
+            argsLabel.TextTruncate = Enum.TextTruncate.AtEnd
+            argsLabel.Parent = logFrame
+            
+            yPos = yPos + 55
+        end
+        
+        scrollFrame.CanvasSize = UDim2.new(0,0,0,yPos)
+    end
+    
+    toggleBtn.MouseButton1Click:Connect(function()
+        logging = not logging
+        
+        if logging then
+            toggleBtn.Text = "Stop"
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(244,67,54)
+            statusLabel.Text = "Status: 🔴 Recording | Total: " .. totalCalls
+            statusLabel.TextColor3 = Color3.fromRGB(244,67,54)
+            
+            if not _G.MyHubLogger then
+                local oldNamecall
+                oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+                    local method = getnamecallmethod()
+                    local args = {...}
+                    
+                    if logging and (method == "FireServer" or method == "InvokeServer") then
+                        totalCalls = totalCalls + 1
+                        statusLabel.Text = "Status: 🔴 Recording | Total: " .. totalCalls
+                        
+                        local argsStr = ""
+                        for i, arg in ipairs(args) do
+                            argsStr = argsStr .. tostring(arg) .. (i < #args and ", " or "")
+                        end
+                        
+                        table.insert(remoteLogs, 1, {
+                            Time = os.date("%H:%M:%S"),
+                            Remote = self.Name,
+                            Method = method,
+                            Args = argsStr
+                        })
+                        
+                        if #remoteLogs > 100 then table.remove(remoteLogs) end
+                        
+                        updateDisplay()
+                    end
+                    
+                    return oldNamecall(self, unpack(args))
+                end)
+                
+                _G.MyHubLogger = oldNamecall
+                hookConnection = oldNamecall
+            end
+            
+            MyHub:Notify("Logger", "Started recording remotes", 2)
+        else
+            toggleBtn.Text = "Start"
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(76,175,80)
+            statusLabel.Text = "Status: Inactive | Total: " .. totalCalls
+            statusLabel.TextColor3 = Color3.fromRGB(150,150,150)
+            
+            MyHub:Notify("Logger", "Stopped recording", 2)
+        end
+    end)
+    
+    clearBtn.MouseButton1Click:Connect(function()
+        remoteLogs = {}
+        totalCalls = 0
+        statusLabel.Text = "Status: " .. (logging and "🔴 Recording" or "Inactive") .. " | Total: 0"
+        updateDisplay()
+        MyHub:Notify("Logger", "Cleared all logs", 2)
+    end)
+    
+    saveBtn.MouseButton1Click:Connect(function()
+        if #remoteLogs > 0 then
+            local json = HttpService:JSONEncode(remoteLogs)
+            writefile("remote_log_" .. os.date("%Y%m%d_%H%M%S") .. ".json", json)
+            MyHub:Notify("Saved", "Log saved with " .. #remoteLogs .. " entries", 3)
+        else
+            MyHub:Notify("Error", "No logs to save", 2)
+        end
+    end)
+    
+    tab.yPos = tab.yPos + 260
+    if activeTab == tab then contentFrame.CanvasSize = UDim2.new(0,0,0, math.max(tab.yPos, 200)) end
+    
+    return {
+        Clear = function(self)
+            remoteLogs = {}
+            totalCalls = 0
+            updateDisplay()
+        end,
+        GetLogs = function(self)
+            return remoteLogs
+        end
+    }
+end
             
             function SectionApi:NewInput(config)
                 local inputName = tostring(config.Name or "Input")
