@@ -1802,6 +1802,113 @@ function SectionApi:NewProgressBar(config)
 end
 
 
+function SectionApi:NewTextBoxButton(config)
+    local name = tostring(config.Name or "TextBox Button")
+    local placeholder = tostring(config.PlaceholderText or "Enter text...")
+    local buttonText = tostring(config.ButtonText or "Submit")
+    local callback = config.Callback or function() end
+    local default = tostring(config.CurrentValue or "")
+    local configKey = config.Flag
+    if configKey and configData.textboxButtons and configData.textboxButtons[configKey] then 
+        default = tostring(configData.textboxButtons[configKey]) 
+    end
+    
+    local tbFrame = Instance.new("Frame")
+    tbFrame.Size = UDim2.new(1,-20,0,60)
+    tbFrame.Position = UDim2.new(0,10,0, tab.yPos)
+    tbFrame.BackgroundColor3 = CurrentTheme.ElementBackground
+    tbFrame.BorderSizePixel = 0
+    tbFrame.Parent = tab.content
+    
+    local frameCorner = Instance.new("UICorner")
+    frameCorner.CornerRadius = UDim.new(0,4)
+    frameCorner.Parent = tbFrame
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1,-10,0,20)
+    label.Position = UDim2.new(0,5,0,5)
+    label.Text = name
+    label.TextColor3 = CurrentTheme.TextColor
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.SourceSans
+    label.TextSize = 13
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = tbFrame
+    
+    local textBox = Instance.new("TextBox")
+    textBox.Size = UDim2.new(0.65,-5,0,25)
+    textBox.Position = UDim2.new(0,5,1,-30)
+    textBox.PlaceholderText = placeholder
+    textBox.Text = default
+    textBox.TextColor3 = CurrentTheme.TextColor
+    textBox.PlaceholderColor3 = CurrentTheme.PlaceholderColor
+    textBox.BackgroundColor3 = CurrentTheme.InputBackground
+    textBox.BorderSizePixel = 0
+    textBox.Font = Enum.Font.SourceSans
+    textBox.TextSize = 12
+    textBox.TextXAlignment = Enum.TextXAlignment.Left
+    textBox.ClearTextOnFocus = false
+    textBox.Parent = tbFrame
+    
+    local boxCorner = Instance.new("UICorner")
+    boxCorner.CornerRadius = UDim.new(0,4)
+    boxCorner.Parent = textBox
+    
+    local boxStroke = Instance.new("UIStroke")
+    boxStroke.Color = CurrentTheme.InputStroke
+    boxStroke.Thickness = 1
+    boxStroke.Parent = textBox
+    
+    local submitBtn = Instance.new("TextButton")
+    submitBtn.Size = UDim2.new(0.35,-5,0,25)
+    submitBtn.Position = UDim2.new(0.65,5,1,-30)
+    submitBtn.Text = buttonText
+    submitBtn.TextColor3 = Color3.new(1,1,1)
+    submitBtn.BackgroundColor3 = Color3.fromRGB(33,150,243)
+    submitBtn.Font = Enum.Font.SourceSansBold
+    submitBtn.TextSize = 12
+    submitBtn.BorderSizePixel = 0
+    submitBtn.Parent = tbFrame
+    
+    addButtonEffects(submitBtn)
+    
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0,4)
+    btnCorner.Parent = submitBtn
+    
+    submitBtn.MouseButton1Click:Connect(function()
+        local text = textBox.Text
+        if text ~= "" then
+            pcall(callback, text)
+            if configKey then
+                if not configData.textboxButtons then configData.textboxButtons = {} end
+                configData.textboxButtons[configKey] = text
+                safeWriteFile(configFile, configData)
+            end
+        end
+    end)
+    
+    -- Also submit on Enter key
+    textBox.FocusLost:Connect(function(enterPressed)
+        if enterPressed then
+            submitBtn.MouseButton1Click:Fire()
+        end
+    end)
+    
+    tab.yPos = tab.yPos + 70
+    if activeTab == tab then contentFrame.CanvasSize = UDim2.new(0,0,0, math.max(tab.yPos, 200)) end
+    
+    return {
+        GetText = function(self)
+            return textBox.Text
+        end,
+        SetText = function(self, text)
+            textBox.Text = tostring(text)
+        end
+    }
+end
+
+
 
 
             
