@@ -31,10 +31,314 @@ local hasFileIO = pcall(function() return writefile end)
 local configFolder = "MyHubConfig"
 local gameConfigFolder = configFolder .. "/Games"
 local configFile = gameConfigFolder .. "/" .. player.Name .. "_" .. gameConfigName .. ".json"
-local configData = {sliders={},toggles={},dropdowns={},keybinds={},inputs={}}
+local configData = {sliders={},toggles={},dropdowns={},keybinds={},inputs={},colors={},textboxButtons={}}
 
 local function safeMakeFolder(folder)
     if hasFileIO and isfolder and not isfolder(folder) then 
+        makefolder(folder)
+        print("[MyHub] Created folder: " .. folder)
+    end
+end
+
+local function safeWriteFile(file, data)
+    if hasFileIO then 
+        writefile(file, HttpService:JSONEncode(data))
+        print("[MyHub] Saved config: " .. file)
+    end
+end
+
+local function safeReadFile(file)
+    if hasFileIO and isfile and isfile(file) then
+        local success, result = pcall(readfile, file)
+        if success then
+            local decodeSuccess, decoded = pcall(HttpService.JSONDecode, HttpService, result)
+            if decodeSuccess then
+                print("[MyHub] Loaded config: " .. file)
+                return decoded
+            end
+        end
+    end
+    return nil
+end
+
+local MyHub = {}
+
+local Themes = {
+    Default = {
+        TextColor=Color3.fromRGB(240,240,240), Background=Color3.fromRGB(25,25,25), Topbar=Color3.fromRGB(34,34,34),
+        ElementBackground=Color3.fromRGB(35,35,35), SliderBackground=Color3.fromRGB(50,138,220),
+        ToggleEnabled=Color3.fromRGB(0,146,214), ToggleDisabled=Color3.fromRGB(100,100,100),
+        DropdownSelected=Color3.fromRGB(40,40,40), DropdownUnselected=Color3.fromRGB(30,30,30),
+        InputBackground=Color3.fromRGB(30,30,30), InputStroke=Color3.fromRGB(65,65,65),
+        PlaceholderColor=Color3.fromRGB(178,178,178), NotificationBackground=Color3.fromRGB(20,20,20)
+    },
+    Ocean = {
+        TextColor=Color3.fromRGB(230,240,240), Background=Color3.fromRGB(20,30,30), Topbar=Color3.fromRGB(25,40,40),
+        ElementBackground=Color3.fromRGB(30,50,50), SliderBackground=Color3.fromRGB(0,110,110),
+        ToggleEnabled=Color3.fromRGB(0,130,130), ToggleDisabled=Color3.fromRGB(70,90,90),
+        DropdownSelected=Color3.fromRGB(30,60,60), DropdownUnselected=Color3.fromRGB(25,40,40),
+        InputBackground=Color3.fromRGB(30,50,50), InputStroke=Color3.fromRGB(50,70,70),
+        PlaceholderColor=Color3.fromRGB(140,160,160), NotificationBackground=Color3.fromRGB(25,35,35)
+    }
+}
+
+local CurrentTheme = Themes.Default
+
+local function ApplyTheme(window)
+    if window.mainWindow then window.mainWindow.BackgroundColor3 = CurrentTheme.Background end
+    if window.titleBar then window.titleBar.BackgroundColor3 = CurrentTheme.Topbar end
+end
+
+local clickSound = Instance.new("Sound")
+clickSound.SoundId = "rbxassetid://156286438"
+clickSound.Volume = 0.5
+clickSound.Parent = SoundService
+
+local function addButtonEffects(btn)
+    btn.ClipsDescendants = true
+    
+    btn.MouseButton1Down:Connect(function()
+        clickSound:Play()
+        
+        local mouse = game:GetService("Players").LocalPlayer:GetMouse()
+        local btnPos = btn.AbsolutePosition
+        local btnSize = btn.AbsoluteSize
+        local mouseX = mouse.X - btnPos.X
+        local mouseY = mouse.Y - btnPos.Y
+        
+        local ripple = Instance.new("Frame")
+        ripple.Size = UDim2.new(0, 0, 0, 0)
+        ripple.Position = UDim2.new(0, mouseX, 0, mouseY)
+        ripple.AnchorPoint = Vector2.new(0.5, 0.5)
+        ripple.BackgroundColor3 = Color3.new(1, 1, 1)
+        ripple.BackgroundTransparency = 0.5
+        ripple.BorderSizePixel = 0
+        ripple.ZIndex = btn.ZIndex + 1
+        ripple.Parent = btn
+        
+        local rippleCorner = Instance.new("UICorner")
+        rippleCorner.CornerRadius = UDim.new(1, 0)
+        rippleCorner.Parent = ripple
+        
+        local rippleSize = math.max(btnSize.X, btnSize.Y) * 2
+        TweenService:Create(ripple, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, rippleSize, 0, rippleSize),
+            BackgroundTransparency = 1
+        }):Play()
+        
+        game:GetService("Debris"):AddItem(ripple, 0.6)
+        
+        for i = 1, 8 do
+            local particle = Instance.new("Frame")
+            particle.Size = UDim2.new(0, 6, 0, 6)
+            particle.Position = UDim2.new(0, mouseX, 0, mouseY)
+            particle.AnchorPoint = Vector2.new(0.5, 0.5)
+            particle.BackgroundColor3 = Color3.fromRGB(math.random(100, 255), math.random(100, 255), math.random(100, 255))
+            particle.BackgroundTransparency = 0
+            particle.BorderSizePixel = 0
+            particle.ZIndex = btn.ZIndex + 2
+            particle.Parent = btn
+            
+            local particleCorner = Instance.new("UICorner")
+            particleCorner.CornerRadius = UDim.new(1, 0)
+            particleCorner.Parent = particle
+            
+            local angle = (i / 8) * math.pi * 2
+            local distance = math.random(30, 60)
+            local targetX = mouseX + math.cos(angle) * distance
+            local targetY = mouseY + math.sin(angle) * distance
+            
+            TweenService:Create(particle, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Position = UDim2.new(0, targetX, 0, targetY),
+                Size = UDim2.new(0, 0, 0, 0),
+                BackgroundTransparency = 1
+            }):Play()
+            
+            game:GetService("Debris"):AddItem(particle, 0.5)
+        end
+    end)
+    
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+            BackgroundColor3 = btn.BackgroundColor3:Lerp(Color3.new(1, 1, 1), 0.1)
+        }):Play()
+    end)
+    
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+            BackgroundColor3 = btn.BackgroundColor3:Lerp(Color3.new(0, 0, 0), 0.1)
+        }):Play()
+    end)
+end
+
+-- Notification History Storage
+MyHub.NotificationHistory = {}
+
+function MyHub:Notify(title, text, time, imageId)
+    table.insert(MyHub.NotificationHistory, 1, {
+        title = tostring(title),
+        text = tostring(text),
+        time = os.date("%H:%M:%S")
+    })
+    if #MyHub.NotificationHistory > 50 then
+        table.remove(MyHub.NotificationHistory)
+    end
+    
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "MyHubNotifications"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = exploitGui or playerGui
+    
+    local notif = Instance.new("Frame")
+    notif.Size = UDim2.new(0,250,0,80)
+    notif.Position = UDim2.new(0.5,-125,0,-100)
+    notif.BackgroundColor3 = CurrentTheme.NotificationBackground
+    notif.BorderSizePixel = 0
+    notif.Parent = screenGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0,8)
+    corner.Parent = notif
+    
+    if imageId then
+        local image = Instance.new("ImageLabel")
+        image.Size = UDim2.new(0,20,0,20)
+        image.Position = UDim2.new(0,10,0,10)
+        image.Image = "rbxassetid://" .. tostring(imageId)
+        image.BackgroundTransparency = 1
+        image.Parent = notif
+    end
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -(imageId and 40 or 10), 0.4, 0)
+    titleLabel.Position = UDim2.new(0, imageId and 35 or 10, 0, 0)
+    titleLabel.Text = tostring(title)
+    titleLabel.TextColor3 = CurrentTheme.TextColor
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Font = Enum.Font.SourceSansBold
+    titleLabel.TextSize = 14
+    titleLabel.Parent = notif
+    
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, -(imageId and 40 or 10), 0.6, 0)
+    textLabel.Position = UDim2.new(0, imageId and 35 or 10, 0.4, 0)
+    textLabel.Text = tostring(text)
+    textLabel.TextColor3 = Color3.new(0.9,0.9,0.9)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Font = Enum.Font.SourceSans
+    textLabel.TextSize = 12
+    textLabel.TextWrapped = true
+    textLabel.Parent = notif
+    
+    TweenService:Create(notif, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {Position = UDim2.new(0.5,-125,0,10)}):Play()
+    
+    spawn(function()
+        wait(time or 5)
+        TweenService:Create(notif, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {Position = UDim2.new(0.5,-125,0,-100)}):Play()
+        wait(0.5)
+        screenGui:Destroy()
+    end)
+end
+
+local function CreateKeybind(callback)
+    local binding = false
+    UserInputService.InputBegan:Connect(function(input)
+        if binding then
+            binding = false
+            callback(input.KeyCode)
+        end
+    end)
+    return function() binding = true end
+end
+
+local function makeDraggable(dragFrame, targetFrame)
+    local dragging, dragStartX, dragStartY, startPos, moveConnection, releaseConnection = false, 0, 0, nil, nil, nil
+ 
+    local function update(input)
+        if not dragging then return end
+        local deltaX = input.Position.X - dragStartX
+        local deltaY = input.Position.Y - dragStartY
+        targetFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + deltaX, startPos.Y.Scale, startPos.Y.Offset + deltaY)
+    end
+ 
+    local function stopDrag()
+        if dragging then
+            dragging = false
+            if moveConnection then moveConnection:Disconnect() moveConnection = nil end
+            if releaseConnection then releaseConnection:Disconnect() releaseConnection = nil end
+        end
+    end
+ 
+    dragFrame.InputBegan:Connect(function(input)
+        if dragging or (input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch) then return end
+        dragging = true
+        dragStartX = input.Position.X
+        dragStartY = input.Position.Y
+        startPos = {X = {Scale = targetFrame.Position.X.Scale, Offset = targetFrame.Position.X.Offset}, Y = {Scale = targetFrame.Position.Y.Scale, Offset = targetFrame.Position.Y.Offset}}
+        moveConnection = UserInputService.InputChanged:Connect(function(inputChange)
+            if dragging and (inputChange.UserInputType == Enum.UserInputType.MouseMovement or inputChange.UserInputType == Enum.UserInputType.Touch) then
+                update(inputChange)
+            end
+        end)
+        releaseConnection = UserInputService.InputEnded:Connect(function(inputEnd)
+            if inputEnd.UserInputType == Enum.UserInputType.MouseButton1 or inputEnd.UserInputType == Enum.UserInputType.Touch then
+                stopDrag()
+            end
+        end)
+    end)
+end
+ 
+local function makeSliderDraggable(sliderBar, fillBar, knob, min, max, valueLabel, configKey, callback)
+    local dragging, moveConnection, releaseConnection = false, nil, nil
+ 
+    local function update(input)
+        if not dragging then return end
+        local relative = math.clamp((input.Position.X - sliderBar.AbsolutePosition.X) / sliderBar.AbsoluteSize.X, 0, 1)
+        local value = min + (max - min) * relative
+        fillBar.Size = UDim2.new(relative, 0, 1, 0)
+        knob.Position = UDim2.new(relative, -4, 0, 0)
+        valueLabel.Text = tostring(math.floor(value))
+        if configKey then configData.sliders[configKey] = value; safeWriteFile(configFile, configData) end
+        if callback then pcall(callback, value) end
+    end
+ 
+    local function stopDrag()
+        if dragging then 
+            dragging = false
+            if moveConnection then moveConnection:Disconnect() moveConnection = nil end
+            if releaseConnection then releaseConnection:Disconnect() releaseConnection = nil end
+        end
+    end
+ 
+    knob.InputBegan:Connect(function(input)
+        if dragging or (input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch) then return end
+        dragging = true
+        moveConnection = UserInputService.InputChanged:Connect(function(inputChange)
+            if dragging and (inputChange.UserInputType == Enum.UserInputType.MouseMovement or inputChange.UserInputType == Enum.UserInputType.Touch) then 
+                update(inputChange) 
+            end
+        end)
+        releaseConnection = UserInputService.InputEnded:Connect(function(inputEnd)
+            if inputEnd.UserInputType == Enum.UserInputType.MouseButton1 or inputEnd.UserInputType == Enum.UserInputType.Touch then 
+                stopDrag() 
+            end
+        end)
+    end)
+end
+
+-- Helper function to create nested container
+local function createNestedAPI(parentFrame, startYPos)
+    local NestedAPI = {}
+    NestedAPI.yPos = startYPos or 0
+    NestedAPI.parent = parentFrame
+    
+    -- Copy all section functions for nested elements
+    -- This will be populated later
+    
+    return NestedAPI
+end
+
+function MyHub:CreateWindow(config)    if hasFileIO and isfolder and not isfolder(folder) then 
         makefolder(folder)
         print("[MyHub] Created folder: " .. folder)
     end
@@ -636,6 +940,443 @@ function MyHub:CreateWindow(config)
                 tab.yPos = tab.yPos + 40
                 if activeTab == tab then contentFrame.CanvasSize = UDim2.new(0,0,0, math.max(tab.yPos, 200)) end
             end
+
+
+
+-- MyHub v2.0 - Nested Elements Addon
+-- Add this code to enable nested elements in buttons, sliders, etc.
+-- Place this AFTER your existing SectionAPI functions
+
+-- Helper function to create nested container with scrolling
+local function createNestedContainer(parentElement, title)
+    local NestedAPI = {}
+    NestedAPI.yPos = 0
+    NestedAPI.expanded = false
+    
+    -- Create expand button
+    local expandBtn = Instance.new("TextButton")
+    expandBtn.Size = UDim2.new(0, 30, 1, 0)
+    expandBtn.Position = UDim2.new(1, -35, 0, 0)
+    expandBtn.Text = "▼"
+    expandBtn.TextColor3 = CurrentTheme.TextColor
+    expandBtn.BackgroundTransparency = 1
+    expandBtn.Font = Enum.Font.SourceSansBold
+    expandBtn.TextSize = 14
+    expandBtn.ZIndex = parentElement.ZIndex + 1
+    expandBtn.Parent = parentElement
+    
+    -- Create nested container (hidden by default)
+    local nestedFrame = Instance.new("Frame")
+    nestedFrame.Size = UDim2.new(1, 0, 0, 0)
+    nestedFrame.Position = UDim2.new(0, 0, 1, 5)
+    nestedFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    nestedFrame.BorderSizePixel = 0
+    nestedFrame.Visible = false
+    nestedFrame.ZIndex = parentElement.ZIndex + 2
+    nestedFrame.Parent = parentElement
+    
+    local nestedCorner = Instance.new("UICorner")
+    nestedCorner.CornerRadius = UDim.new(0, 6)
+    nestedCorner.Parent = nestedFrame
+    
+    -- Scrolling frame inside
+    local scrollFrame = Instance.new("ScrollingFrame")
+    scrollFrame.Size = UDim2.new(1, -10, 1, -10)
+    scrollFrame.Position = UDim2.new(0, 5, 0, 5)
+    scrollFrame.BackgroundTransparency = 1
+    scrollFrame.ScrollBarThickness = 4
+    scrollFrame.BorderSizePixel = 0
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    scrollFrame.ZIndex = parentElement.ZIndex + 3
+    scrollFrame.Parent = nestedFrame
+    
+    NestedAPI.scrollFrame = scrollFrame
+    NestedAPI.nestedFrame = nestedFrame
+    
+    -- Toggle expand/collapse
+    expandBtn.MouseButton1Click:Connect(function()
+        NestedAPI.expanded = not NestedAPI.expanded
+        expandBtn.Text = NestedAPI.expanded and "▲" or "▼"
+        
+        if NestedAPI.expanded then
+            nestedFrame.Visible = true
+            local targetHeight = math.min(NestedAPI.yPos + 20, 200)
+            TweenService:Create(nestedFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+                Size = UDim2.new(1, 0, 0, targetHeight)
+            }):Play()
+        else
+            TweenService:Create(nestedFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+                Size = UDim2.new(1, 0, 0, 0)
+            }):Play()
+            wait(0.3)
+            nestedFrame.Visible = false
+        end
+    end)
+    
+    -- Add all element creation functions to NestedAPI
+    function NestedAPI:NewButton(config)
+        local buttonName = tostring(config.Name or "Button")
+        local callback = config.Callback or function() end
+        
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, -10, 0, 30)
+        btn.Position = UDim2.new(0, 5, 0, self.yPos)
+        btn.Text = buttonName
+        btn.TextColor3 = CurrentTheme.TextColor
+        btn.BackgroundColor3 = CurrentTheme.ElementBackground
+        btn.Font = Enum.Font.SourceSans
+        btn.TextSize = 12
+        btn.BorderSizePixel = 0
+        btn.ZIndex = scrollFrame.ZIndex + 1
+        btn.Parent = scrollFrame
+        
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 4)
+        btnCorner.Parent = btn
+        
+        addButtonEffects(btn)
+        btn.MouseButton1Click:Connect(function() pcall(callback) end)
+        
+        self.yPos = self.yPos + 35
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, self.yPos)
+        
+        -- Allow nesting inside this button too!
+        local buttonAPI = createNestedContainer(btn, buttonName)
+        for k, v in pairs(buttonAPI) do
+            if k ~= "yPos" and k ~= "expanded" then
+                btn[k] = v
+            end
+        end
+        
+        return btn
+    end
+    
+    function NestedAPI:NewLabel(config)
+        local labelText = tostring(config.Name or "Label")
+        
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, -10, 0, 25)
+        label.Position = UDim2.new(0, 5, 0, self.yPos)
+        label.Text = labelText
+        label.TextColor3 = CurrentTheme.TextColor
+        label.BackgroundColor3 = CurrentTheme.ElementBackground
+        label.Font = Enum.Font.SourceSans
+        label.TextSize = 12
+        label.BorderSizePixel = 0
+        label.TextWrapped = true
+        label.ZIndex = scrollFrame.ZIndex + 1
+        label.Parent = scrollFrame
+        
+        local labelCorner = Instance.new("UICorner")
+        labelCorner.CornerRadius = UDim.new(0, 4)
+        labelCorner.Parent = label
+        
+        self.yPos = self.yPos + 30
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, self.yPos)
+        
+        return {
+            SetText = function(_, text)
+                label.Text = tostring(text)
+            end
+        }
+    end
+    
+    function NestedAPI:NewSlider(config)
+        local sliderName = tostring(config.Name or "Slider")
+        local min = config.Range[1] or 0
+        local max = config.Range[2] or 100
+        local default = config.CurrentValue or min
+        local callback = config.Callback or function() end
+        
+        local sliderFrame = Instance.new("Frame")
+        sliderFrame.Size = UDim2.new(1, -10, 0, 50)
+        sliderFrame.Position = UDim2.new(0, 5, 0, self.yPos)
+        sliderFrame.BackgroundColor3 = CurrentTheme.ElementBackground
+        sliderFrame.BorderSizePixel = 0
+        sliderFrame.ZIndex = scrollFrame.ZIndex + 1
+        sliderFrame.Parent = scrollFrame
+        
+        local frameCorner = Instance.new("UICorner")
+        frameCorner.CornerRadius = UDim.new(0, 4)
+        frameCorner.Parent = sliderFrame
+        
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 0.4, 0)
+        label.Text = sliderName
+        label.TextColor3 = CurrentTheme.TextColor
+        label.BackgroundTransparency = 1
+        label.Font = Enum.Font.SourceSans
+        label.TextSize = 12
+        label.ZIndex = sliderFrame.ZIndex + 1
+        label.Parent = sliderFrame
+        
+        local sliderBar = Instance.new("Frame")
+        sliderBar.Size = UDim2.new(1, 0, 0.2, 0)
+        sliderBar.Position = UDim2.new(0, 0, 0.6, 0)
+        sliderBar.BackgroundColor3 = CurrentTheme.SliderBackground
+        sliderBar.BorderSizePixel = 0
+        sliderBar.ZIndex = sliderFrame.ZIndex + 1
+        sliderBar.Parent = sliderFrame
+        
+        local barCorner = Instance.new("UICorner")
+        barCorner.CornerRadius = UDim.new(0, 4)
+        barCorner.Parent = sliderBar
+        
+        local initialRelative = (default - min) / (max - min)
+        local fillBar = Instance.new("Frame")
+        fillBar.Size = UDim2.new(initialRelative, 0, 1, 0)
+        fillBar.BackgroundColor3 = Color3.new(0, 1, 0)
+        fillBar.BorderSizePixel = 0
+        fillBar.ZIndex = sliderBar.ZIndex + 1
+        fillBar.Parent = sliderBar
+        
+        local fillCorner = Instance.new("UICorner")
+        fillCorner.CornerRadius = UDim.new(0, 4)
+        fillCorner.Parent = fillBar
+        
+        local knob = Instance.new("Frame")
+        knob.Size = UDim2.new(0, 8, 1, 0)
+        knob.Position = UDim2.new(initialRelative, -4, 0, 0)
+        knob.BackgroundColor3 = CurrentTheme.TextColor
+        knob.ZIndex = fillBar.ZIndex + 1
+        knob.Parent = sliderBar
+        
+        local knobCorner = Instance.new("UICorner")
+        knobCorner.CornerRadius = UDim.new(0, 4)
+        knobCorner.Parent = knob
+        
+        local valueLabel = Instance.new("TextLabel")
+        valueLabel.Size = UDim2.new(0.3, 0, 0.4, 0)
+        valueLabel.Position = UDim2.new(0.7, 0, 0.6, 0)
+        valueLabel.Text = tostring(math.floor(default))
+        valueLabel.TextColor3 = CurrentTheme.TextColor
+        valueLabel.BackgroundTransparency = 1
+        valueLabel.Font = Enum.Font.SourceSansBold
+        valueLabel.TextSize = 12
+        valueLabel.ZIndex = sliderFrame.ZIndex + 1
+        valueLabel.Parent = sliderFrame
+        
+        makeSliderDraggable(sliderBar, fillBar, knob, min, max, valueLabel, nil, callback)
+        
+        self.yPos = self.yPos + 55
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, self.yPos)
+        
+        -- Allow nesting inside slider
+        local sliderAPI = createNestedContainer(sliderFrame, sliderName)
+        for k, v in pairs(sliderAPI) do
+            if k ~= "yPos" and k ~= "expanded" then
+                sliderFrame[k] = v
+            end
+        end
+        
+        return sliderFrame
+    end
+    
+    function NestedAPI:NewToggle(config)
+        local toggleName = tostring(config.Name or "Toggle")
+        local default = config.CurrentValue or false
+        local callback = config.Callback or function() end
+        
+        local toggleFrame = Instance.new("Frame")
+        toggleFrame.Size = UDim2.new(1, -10, 0, 30)
+        toggleFrame.Position = UDim2.new(0, 5, 0, self.yPos)
+        toggleFrame.BackgroundColor3 = CurrentTheme.ElementBackground
+        toggleFrame.BorderSizePixel = 0
+        toggleFrame.ZIndex = scrollFrame.ZIndex + 1
+        toggleFrame.Parent = scrollFrame
+        
+        local frameCorner = Instance.new("UICorner")
+        frameCorner.CornerRadius = UDim.new(0, 4)
+        frameCorner.Parent = toggleFrame
+        
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0.7, 0, 1, 0)
+        label.Text = toggleName
+        label.TextColor3 = CurrentTheme.TextColor
+        label.BackgroundTransparency = 1
+        label.Font = Enum.Font.SourceSans
+        label.TextSize = 12
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.ZIndex = toggleFrame.ZIndex + 1
+        label.Parent = toggleFrame
+        
+        local toggleBg = Instance.new("Frame")
+        toggleBg.Size = UDim2.new(0, 45, 0, 22)
+        toggleBg.Position = UDim2.new(1, -50, 0.5, -11)
+        toggleBg.BackgroundColor3 = default and Color3.fromRGB(52, 199, 89) or Color3.fromRGB(120, 120, 128)
+        toggleBg.BorderSizePixel = 0
+        toggleBg.ZIndex = toggleFrame.ZIndex + 1
+        toggleBg.Parent = toggleFrame
+        
+        local bgCorner = Instance.new("UICorner")
+        bgCorner.CornerRadius = UDim.new(1, 0)
+        bgCorner.Parent = toggleBg
+        
+        local knob = Instance.new("Frame")
+        knob.Size = UDim2.new(0, 18, 0, 18)
+        knob.Position = default and UDim2.new(0, 25, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
+        knob.BackgroundColor3 = Color3.new(1, 1, 1)
+        knob.BorderSizePixel = 0
+        knob.ZIndex = toggleBg.ZIndex + 1
+        knob.Parent = toggleBg
+        
+        local knobCorner = Instance.new("UICorner")
+        knobCorner.CornerRadius = UDim.new(1, 0)
+        knobCorner.Parent = knob
+        
+        local enabled = default
+        
+        local toggleButton = Instance.new("TextButton")
+        toggleButton.Size = UDim2.new(1, 0, 1, 0)
+        toggleButton.BackgroundTransparency = 1
+        toggleButton.Text = ""
+        toggleButton.ZIndex = toggleBg.ZIndex + 1
+        toggleButton.Parent = toggleBg
+        
+        toggleButton.MouseButton1Click:Connect(function()
+            enabled = not enabled
+            clickSound:Play()
+            
+            TweenService:Create(toggleBg, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+                BackgroundColor3 = enabled and Color3.fromRGB(52, 199, 89) or Color3.fromRGB(120, 120, 128)
+            }):Play()
+            
+            TweenService:Create(knob, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+                Position = enabled and UDim2.new(0, 25, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
+            }):Play()
+            
+            pcall(callback, enabled)
+        end)
+        
+        self.yPos = self.yPos + 35
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, self.yPos)
+        
+        -- Allow nesting
+        local toggleAPI = createNestedContainer(toggleFrame, toggleName)
+        for k, v in pairs(toggleAPI) do
+            if k ~= "yPos" and k ~= "expanded" then
+                toggleFrame[k] = v
+            end
+        end
+        
+        return toggleFrame
+    end
+    
+    function NestedAPI:NewTextBoxButton(config)
+        local name = tostring(config.Name or "TextBox Button")
+        local placeholder = tostring(config.PlaceholderText or "Enter text...")
+        local buttonText = tostring(config.ButtonText or "Submit")
+        local callback = config.Callback or function() end
+        
+        local tbFrame = Instance.new("Frame")
+        tbFrame.Size = UDim2.new(1, -10, 0, 35)
+        tbFrame.Position = UDim2.new(0, 5, 0, self.yPos)
+        tbFrame.BackgroundColor3 = CurrentTheme.ElementBackground
+        tbFrame.BorderSizePixel = 0
+        tbFrame.ZIndex = scrollFrame.ZIndex + 1
+        tbFrame.Parent = scrollFrame
+        
+        local frameCorner = Instance.new("UICorner")
+        frameCorner.CornerRadius = UDim.new(0, 4)
+        frameCorner.Parent = tbFrame
+        
+        local textBox = Instance.new("TextBox")
+        textBox.Size = UDim2.new(0.65, -5, 0, 25)
+        textBox.Position = UDim2.new(0, 5, 0.5, -12.5)
+        textBox.PlaceholderText = placeholder
+        textBox.Text = ""
+        textBox.TextColor3 = CurrentTheme.TextColor
+        textBox.PlaceholderColor3 = CurrentTheme.PlaceholderColor
+        textBox.BackgroundColor3 = CurrentTheme.InputBackground
+        textBox.BorderSizePixel = 0
+        textBox.Font = Enum.Font.SourceSans
+        textBox.TextSize = 11
+        textBox.TextXAlignment = Enum.TextXAlignment.Left
+        textBox.ClearTextOnFocus = false
+        textBox.ZIndex = tbFrame.ZIndex + 1
+        textBox.Parent = tbFrame
+        
+        local boxCorner = Instance.new("UICorner")
+        boxCorner.CornerRadius = UDim.new(0, 4)
+        boxCorner.Parent = textBox
+        
+        local submitBtn = Instance.new("TextButton")
+        submitBtn.Size = UDim2.new(0.35, -5, 0, 25)
+        submitBtn.Position = UDim2.new(0.65, 5, 0.5, -12.5)
+        submitBtn.Text = buttonText
+        submitBtn.TextColor3 = Color3.new(1, 1, 1)
+        submitBtn.BackgroundColor3 = Color3.fromRGB(33, 150, 243)
+        submitBtn.Font = Enum.Font.SourceSansBold
+        submitBtn.TextSize = 11
+        submitBtn.BorderSizePixel = 0
+        submitBtn.ZIndex = tbFrame.ZIndex + 1
+        submitBtn.Parent = tbFrame
+        
+        addButtonEffects(submitBtn)
+        
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 4)
+        btnCorner.Parent = submitBtn
+        
+        submitBtn.MouseButton1Click:Connect(function()
+            if textBox.Text ~= "" then
+                pcall(callback, textBox.Text)
+            end
+        end)
+        
+        textBox.FocusLost:Connect(function(enterPressed)
+            if enterPressed and textBox.Text ~= "" then
+                pcall(callback, textBox.Text)
+            end
+        end)
+        
+        self.yPos = self.yPos + 40
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, self.yPos)
+        
+        return {
+            GetText = function() return textBox.Text end,
+            SetText = function(_, text) textBox.Text = tostring(text) end
+        }
+    end
+    
+    return NestedAPI
+end
+
+-- Example Usage:
+--[[
+local MainTab = Window:NewTab({Name = "Main"})
+local Section = MainTab:NewSection({Name = "Test"})
+
+local myButton = Section:NewButton({
+    Name = "Click Me",
+    Callback = function()
+        print("Button clicked!")
+    end
+})
+
+-- Now you can add nested elements inside the button!
+myButton:NewLabel({Name = "Label inside button!"})
+
+myButton:NewSlider({
+    Name = "Nested Slider",
+    Range = {0, 100},
+    CurrentValue = 50,
+    Callback = function(value)
+        print("Nested slider value:", value)
+    end
+})
+
+myButton:NewToggle({
+    Name = "Nested Toggle",
+    CurrentValue = false,
+    Callback = function(enabled)
+        print("Nested toggle:", enabled)
+    end
+})
+]]
+
+
+
             
             function SectionApi:NewToggle(config)
                 local toggleName = tostring(config.Name or "Toggle")
