@@ -1911,6 +1911,161 @@ end
 
 
 
+function SectionApi:NewNotificationHistory()
+    local historyFrame = Instance.new("Frame")
+    historyFrame.Size = UDim2.new(1,-20,0,220)
+    historyFrame.Position = UDim2.new(0,10,0, tab.yPos)
+    historyFrame.BackgroundColor3 = CurrentTheme.ElementBackground
+    historyFrame.BorderSizePixel = 0
+    historyFrame.Parent = tab.content
+    
+    local frameCorner = Instance.new("UICorner")
+    frameCorner.CornerRadius = UDim.new(0,4)
+    frameCorner.Parent = historyFrame
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1,-10,0,25)
+    titleLabel.Position = UDim2.new(0,5,0,5)
+    titleLabel.Text = "🔔 Notification History"
+    titleLabel.TextColor3 = CurrentTheme.TextColor
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Font = Enum.Font.SourceSansBold
+    titleLabel.TextSize = 14
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = historyFrame
+    
+    local scrollFrame = Instance.new("ScrollingFrame")
+    scrollFrame.Size = UDim2.new(1,-10,1,-70)
+    scrollFrame.Position = UDim2.new(0,5,0,30)
+    scrollFrame.BackgroundTransparency = 1
+    scrollFrame.ScrollBarThickness = 4
+    scrollFrame.BorderSizePixel = 0
+    scrollFrame.Parent = historyFrame
+    
+    local function updateHistory()
+        scrollFrame:ClearAllChildren()
+        local yPos = 0
+        
+        if #MyHub.NotificationHistory == 0 then
+            local emptyLabel = Instance.new("TextLabel")
+            emptyLabel.Size = UDim2.new(1,0,0,30)
+            emptyLabel.Text = "No notifications yet..."
+            emptyLabel.TextColor3 = Color3.fromRGB(150,150,150)
+            emptyLabel.BackgroundTransparency = 1
+            emptyLabel.Font = Enum.Font.SourceSansItalic
+            emptyLabel.TextSize = 12
+            emptyLabel.Parent = scrollFrame
+        else
+            for i, notif in ipairs(MyHub.NotificationHistory) do
+                local notifFrame = Instance.new("Frame")
+                notifFrame.Size = UDim2.new(1,0,0,45)
+                notifFrame.Position = UDim2.new(0,0,0,yPos)
+                notifFrame.BackgroundColor3 = Color3.fromRGB(45,45,45)
+                notifFrame.BorderSizePixel = 0
+                notifFrame.Parent = scrollFrame
+                
+                local notifCorner = Instance.new("UICorner")
+                notifCorner.CornerRadius = UDim.new(0,4)
+                notifCorner.Parent = notifFrame
+                
+                local timeLabel = Instance.new("TextLabel")
+                timeLabel.Size = UDim2.new(0,55,1,0)
+                timeLabel.Position = UDim2.new(0,5,0,0)
+                timeLabel.Text = notif.time
+                timeLabel.TextColor3 = Color3.fromRGB(150,150,150)
+                timeLabel.BackgroundTransparency = 1
+                timeLabel.Font = Enum.Font.SourceSans
+                timeLabel.TextSize = 10
+                timeLabel.Parent = notifFrame
+                
+                local titleLabel = Instance.new("TextLabel")
+                titleLabel.Size = UDim2.new(1,-65,0.5,0)
+                titleLabel.Position = UDim2.new(0,65,0,2)
+                titleLabel.Text = notif.title
+                titleLabel.TextColor3 = CurrentTheme.TextColor
+                titleLabel.BackgroundTransparency = 1
+                titleLabel.Font = Enum.Font.SourceSansBold
+                titleLabel.TextSize = 11
+                titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+                titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                titleLabel.Parent = notifFrame
+                
+                local textLabel = Instance.new("TextLabel")
+                textLabel.Size = UDim2.new(1,-65,0.5,0)
+                textLabel.Position = UDim2.new(0,65,0.5,0)
+                textLabel.Text = notif.text
+                textLabel.TextColor3 = Color3.fromRGB(180,180,180)
+                textLabel.BackgroundTransparency = 1
+                textLabel.Font = Enum.Font.SourceSans
+                textLabel.TextSize = 10
+                textLabel.TextXAlignment = Enum.TextXAlignment.Left
+                textLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                textLabel.Parent = notifFrame
+                
+                yPos = yPos + 50
+            end
+        end
+        
+        scrollFrame.CanvasSize = UDim2.new(0,0,0,yPos)
+    end
+    
+    updateHistory()
+    
+    local buttonFrame = Instance.new("Frame")
+    buttonFrame.Size = UDim2.new(1,-10,0,30)
+    buttonFrame.Position = UDim2.new(0,5,1,-35)
+    buttonFrame.BackgroundTransparency = 1
+    buttonFrame.Parent = historyFrame
+    
+    local refreshBtn = Instance.new("TextButton")
+    refreshBtn.Size = UDim2.new(0.48,0,1,0)
+    refreshBtn.Position = UDim2.new(0,0,0,0)
+    refreshBtn.Text = "🔄 Refresh"
+    refreshBtn.TextColor3 = CurrentTheme.TextColor
+    refreshBtn.BackgroundColor3 = Color3.fromRGB(76,175,80)
+    refreshBtn.Font = Enum.Font.SourceSansBold
+    refreshBtn.TextSize = 12
+    refreshBtn.BorderSizePixel = 0
+    refreshBtn.Parent = buttonFrame
+    
+    addButtonEffects(refreshBtn)
+    
+    local refreshCorner = Instance.new("UICorner")
+    refreshCorner.CornerRadius = UDim.new(0,4)
+    refreshCorner.Parent = refreshBtn
+    
+    local clearBtn = Instance.new("TextButton")
+    clearBtn.Size = UDim2.new(0.48,0,1,0)
+    clearBtn.Position = UDim2.new(0.52,0,0,0)
+    clearBtn.Text = "🗑️ Clear"
+    clearBtn.TextColor3 = CurrentTheme.TextColor
+    clearBtn.BackgroundColor3 = Color3.fromRGB(244,67,54)
+    clearBtn.Font = Enum.Font.SourceSansBold
+    clearBtn.TextSize = 12
+    clearBtn.BorderSizePixel = 0
+    clearBtn.Parent = buttonFrame
+    
+    addButtonEffects(clearBtn)
+    
+    local clearCorner = Instance.new("UICorner")
+    clearCorner.CornerRadius = UDim.new(0,4)
+    clearCorner.Parent = clearBtn
+    
+    refreshBtn.MouseButton1Click:Connect(updateHistory)
+    clearBtn.MouseButton1Click:Connect(function()
+        MyHub.NotificationHistory = {}
+        updateHistory()
+        MyHub:Notify("History", "Cleared!", 2)
+    end)
+    
+    tab.yPos = tab.yPos + 230
+    if activeTab == tab then contentFrame.CanvasSize = UDim2.new(0,0,0, math.max(tab.yPos, 200)) end
+    
+    return {
+        Refresh = updateHistory
+    }
+end
+
             
             function SectionApi:NewColorPicker(config)
                 local colorName = tostring(config.Name or "Color Picker")
