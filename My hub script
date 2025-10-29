@@ -1703,6 +1703,107 @@ myButton:NewToggle({
                 if activeTab == tab then contentFrame.CanvasSize = UDim2.new(0,0,0, math.max(tab.yPos, 200)) end
                 return keybindBtn
             end
+
+
+function SectionApi:NewProgressBar(config)
+    local barName = tostring(config.Name or "Progress")
+    local max = config.Max or 100
+    
+    local barFrame = Instance.new("Frame")
+    barFrame.Size = UDim2.new(1,-20,0,50)
+    barFrame.Position = UDim2.new(0,10,0, tab.yPos)
+    barFrame.BackgroundColor3 = CurrentTheme.ElementBackground
+    barFrame.BorderSizePixel = 0
+    barFrame.Parent = tab.content
+    
+    local frameCorner = Instance.new("UICorner")
+    frameCorner.CornerRadius = UDim.new(0,4)
+    frameCorner.Parent = barFrame
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1,-10,0.3,0)
+    label.Position = UDim2.new(0,5,0,5)
+    label.Text = barName .. " (0%)"
+    label.TextColor3 = CurrentTheme.TextColor
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.SourceSansBold
+    label.TextSize = 13
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = barFrame
+    
+    local progressBg = Instance.new("Frame")
+    progressBg.Size = UDim2.new(1,-10,0.35,0)
+    progressBg.Position = UDim2.new(0,5,0.5,0)
+    progressBg.BackgroundColor3 = Color3.fromRGB(40,40,40)
+    progressBg.BorderSizePixel = 0
+    progressBg.Parent = barFrame
+    
+    local bgCorner = Instance.new("UICorner")
+    bgCorner.CornerRadius = UDim.new(0,6)
+    bgCorner.Parent = progressBg
+    
+    local progressFill = Instance.new("Frame")
+    progressFill.Size = UDim2.new(0,0,1,0)
+    progressFill.BackgroundColor3 = Color3.fromRGB(76,175,80)
+    progressFill.BorderSizePixel = 0
+    progressFill.Parent = progressBg
+    
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(0,6)
+    fillCorner.Parent = progressFill
+    
+    -- Animated gradient
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(76,175,80)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(100,255,100))
+    }
+    gradient.Parent = progressFill
+    
+    -- Animate gradient
+    spawn(function()
+        while progressFill.Parent do
+            TweenService:Create(gradient, TweenInfo.new(2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1, true), {
+                Offset = Vector2.new(1, 0)
+            }):Play()
+            wait(2)
+        end
+    end)
+    
+    tab.yPos = tab.yPos + 60
+    if activeTab == tab then contentFrame.CanvasSize = UDim2.new(0,0,0, math.max(tab.yPos, 200)) end
+    
+    return {
+        Set = function(self, value)
+            local percent = math.clamp(value / max, 0, 1)
+            label.Text = barName .. " (" .. math.floor(percent * 100) .. "%)"
+            TweenService:Create(progressFill, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+                Size = UDim2.new(percent, 0, 1, 0)
+            }):Play()
+            
+            -- Color changes based on progress
+            local color
+            if percent < 0.33 then
+                color = Color3.fromRGB(244, 67, 54) -- Red
+            elseif percent < 0.66 then
+                color = Color3.fromRGB(255, 193, 7) -- Yellow
+            else
+                color = Color3.fromRGB(76, 175, 80) -- Green
+            end
+            
+            TweenService:Create(progressFill, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+                BackgroundColor3 = color
+            }):Play()
+        end,
+        SetMax = function(self, newMax)
+            max = newMax
+        end
+    }
+end
+
+
+
+
             
             function SectionApi:NewColorPicker(config)
                 local colorName = tostring(config.Name or "Color Picker")
