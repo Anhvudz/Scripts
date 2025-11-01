@@ -703,8 +703,7 @@ OtherSection:NewToggle({
             _G.TimeStopButtonActive = false
             MyHub:Notify("Auto Time Stop", "Disabled", 2)
         end
-  end
+    end
 })
-
 
 end)
