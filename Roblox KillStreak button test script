@@ -704,7 +704,7 @@ OtherSection:NewToggle({
             MyHub:Notify("Auto Time Stop", "Disabled", 2)
         end
   end
-end)
-
-
 })
+
+
+end)
