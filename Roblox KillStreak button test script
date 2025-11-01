@@ -471,6 +471,7 @@ local OtherSection = Other:NewSection({Name = "time stop button✓✓✓✓"})
 OtherSection:NewButton({
 Name = "Get Time Stop Button",
 Callback = function()
+MyHub:Notify("cạc", "tool!", 5)
 task.spawn(function()
 if workspace.nhsjs4:FindFirstChildOfClass("Tool") or game.Players.LocalPlayer.Backpack:FindFirstChildOfClass("Tool") then
 local v_u_1 = game:GetService("ReplicatedStorage")
