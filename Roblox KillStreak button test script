@@ -706,4 +706,501 @@ OtherSection:NewToggle({
     end
 })
 
+
+-- ============ OTHER TAB (DAMAGE SYSTEM + AUTO FARM) ============
+local OtherTab = Window:NewTab({Name = "deadly-GameBreak-farm"})
+
+-- ============ DAMAGE SYSTEM ============
+local DamageSection = OtherTab:NewSection({Name = "💥 Damage System"})
+
+-- Current target storage
+_G.CurrentTarget = nil
+_G.SelectedTargetName = ""
+
+-- Target name input
+DamageSection:NewTextBoxButton({
+    Name = "Target Name",
+    PlaceholderText = "Enter name or 'Player123'",
+    ButtonText = "Set",
+    Flag = "TargetName",
+    Callback = function(text)
+        _G.SelectedTargetName = text
+        MyHub:Notify("Target", "Set to: " .. text, 2)
+    end,
+})
+
+-- Damage amount slider
+local damageAmount = 10
+
+DamageSection:NewSlider({
+    Name = "Damage Amount",
+    Range = {1, 1000},
+    Increment = 1,
+    CurrentValue = 10,
+    Flag = "DamageAmount",
+    Callback = function(Value)
+        damageAmount = Value
+    end,
+})
+
+-- Quick damage presets
+local PresetSection = OtherTab:NewSection({Name = "Quick Damage Presets"})
+
+PresetSection:NewButton({
+    Name = "Low (10)",
+    Callback = function()
+        damageAmount = 10
+        MyHub:Notify("Damage", "Set to 10", 2)
+    end,
+})
+
+PresetSection:NewButton({
+    Name = "Medium (100)",
+    Callback = function()
+        damageAmount = 100
+        MyHub:Notify("Damage", "Set to 100", 2)
+    end,
+})
+
+PresetSection:NewButton({
+    Name = "High (500)",
+    Callback = function()
+        damageAmount = 500
+        MyHub:Notify("Damage", "Set to 500", 2)
+    end,
+})
+
+PresetSection:NewButton({
+    Name = "Max (1000)",
+    Callback = function()
+        damageAmount = 1000
+        MyHub:Notify("Damage", "Set to 1000", 2)
+    end,
+})
+
+-- Player/NPC List
+local TargetSection = OtherTab:NewSection({Name = "🎯 Target Selection"})
+
+-- Function to get all valid targets
+local function getAllTargets()
+    local targets = {}
+    
+    -- Get players
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character and plr.Character:FindFirstChild("Humanoid") then
+            table.insert(targets, {
+                Name = plr.Name,
+                Type = "Player",
+                Model = plr.Character
+            })
+        end
+    end
+    
+    -- Get NPCs from workspace
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj ~= player.Character then
+            -- Check if it's in Map.Dummy or just a valid NPC
+            if obj.Parent and (obj.Parent.Name == "Dummy" or obj.Parent.Name == "Map" or obj.Parent == workspace) then
+                table.insert(targets, {
+                    Name = obj.Name,
+                    Type = "NPC",
+                    Model = obj
+                })
+            end
+        end
+    end
+    
+    return targets
+end
+
+-- Create target dropdown
+local targetOptions = {"None"}
+local targetDropdown
+
+local function updateTargetList()
+    local targets = getAllTargets()
+    targetOptions = {"None"}
+    
+    for _, target in ipairs(targets) do
+        table.insert(targetOptions, target.Name .. " (" .. target.Type .. ")")
+    end
+    
+    -- If dropdown exists, we'd need to recreate it
+    -- For now, just notify
+    MyHub:Notify("Targets", "Found " .. #targets .. " targets", 2)
+end
+
+TargetSection:NewButton({
+    Name = "🔄 Refresh Target List",
+    Callback = function()
+        updateTargetList()
+    end,
+})
+
+-- Manual target selection dropdown
+TargetSection:NewDropdown({
+    Name = "Select Target",
+    Options = {"None", "Nearest Player", "Nearest NPC"},
+    CurrentOption = "None",
+    Flag = "TargetSelect",
+    Callback = function(Option)
+        if Option == "Nearest Player" then
+            local nearest = nil
+            local nearestDist = math.huge
+            
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist = (plr.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                    if dist < nearestDist then
+                        nearestDist = dist
+                        nearest = plr.Character
+                    end
+                end
+            end
+            
+            _G.CurrentTarget = nearest
+            MyHub:Notify("Target", nearest and "Selected: " .. nearest.Name or "No players found", 2)
+            
+        elseif Option == "Nearest NPC" then
+            local nearest = nil
+            local nearestDist = math.huge
+            
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") and obj ~= player.Character then
+                    local dist = (obj.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                    if dist < nearestDist then
+                        nearestDist = dist
+                        nearest = obj
+                    end
+                end
+            end
+            
+            _G.CurrentTarget = nearest
+            MyHub:Notify("Target", nearest and "Selected: " .. nearest.Name or "No NPCs found", 2)
+        else
+            _G.CurrentTarget = nil
+            MyHub:Notify("Target", "Cleared", 2)
+        end
+    end,
+})
+
+-- Fire damage button
+local AttackSection = OtherTab:NewSection({Name = "⚔️ Attack Actions"})
+
+AttackSection:NewButton({
+    Name = "🔥 Fire Damage",
+    Callback = function()
+        local target = _G.CurrentTarget
+        
+        if not target then
+            MyHub:Notify("Error", "No target selected!", 2)
+            return
+        end
+        
+        local ch = player.Character
+        if not ch then return end
+        
+        local effects = ch:FindFirstChild("Effects")
+        if not effects then
+            MyHub:Notify("Error", "Effects folder not found!", 2)
+            return
+        end
+        
+        local remote = effects:FindFirstChild("DMF")
+        if not remote or not remote:IsA("RemoteEvent") then
+            MyHub:Notify("Error", "DMF remote not found!", 2)
+            return
+        end
+        
+        local targetPart = target:FindFirstChild("HumanoidRootPart") or target:FindFirstChild("Humanoid")
+        if targetPart then
+            remote:FireServer(targetPart, damageAmount)
+            MyHub:Notify("Damage", "Fired " .. damageAmount .. " damage!", 2)
+        end
+    end,
+})
+
+-- ============ KILL AURA ============
+local KillAuraSection = OtherTab:NewSection({Name = "⚡ Kill Aura"})
+
+KillAuraSection:NewToggle({
+    Name = "Kill Aura",
+    CurrentValue = false,
+    Flag = "KillAura",
+    Callback = function(Value)
+        _G.KillAura = Value
+        
+        if Value then
+            spawn(function()
+                while _G.KillAura do
+                    local ch = player.Character
+                    if ch and ch:FindFirstChild("HumanoidRootPart") then
+                        local effects = ch:FindFirstChild("Effects")
+                        local remote = effects and effects:FindFirstChild("DMF")
+                        
+                        if remote then
+                            -- Find all nearby targets
+                            for _, obj in ipairs(workspace:GetDescendants()) do
+                                if obj:IsA("Model") and obj ~= ch and obj:FindFirstChild("Humanoid") then
+                                    local hrp = obj:FindFirstChild("HumanoidRootPart")
+                                    if hrp then
+                                        local dist = (hrp.Position - ch.HumanoidRootPart.Position).Magnitude
+                                        
+                                        if dist <= (_G.KillAuraRange or 20) then
+                                            local target = hrp or obj.Humanoid
+                                            remote:FireServer(target, damageAmount)
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    
+                    wait(_G.KillAuraDelay or 0.1)
+                end
+            end)
+            
+            MyHub:Notify("Kill Aura", "Enabled!", 2)
+        else
+            MyHub:Notify("Kill Aura", "Disabled!", 2)
+        end
+    end,
+})
+
+KillAuraSection:NewSlider({
+    Name = "Kill Aura Range",
+    Range = {5, 50},
+    Increment = 1,
+    CurrentValue = 20,
+    Flag = "KillAuraRange",
+    Callback = function(Value)
+        _G.KillAuraRange = Value
+    end,
+})
+
+KillAuraSection:NewSlider({
+    Name = "Attack Delay (seconds)",
+    Range = {0.1, 2},
+    Increment = 0.1,
+    CurrentValue = 0.1,
+    Flag = "KillAuraDelay",
+    Callback = function(Value)
+        _G.KillAuraDelay = Value
+    end,
+})
+
+-- ============ AUTO FARM ============
+local AutoFarmSection = OtherTab:NewSection({Name = "🤖 Auto Farm"})
+
+-- Auto farm state
+_G.AutoFarmRunning = false
+_G.AutoFarmTarget = nil
+
+-- Function to find nearest dummy
+local function findNearestDummy()
+    local nearest = nil
+    local nearestDist = math.huge
+    
+    -- Check Map.Dummy folder
+    local dummyFolder = workspace:FindFirstChild("Map")
+    if dummyFolder then
+        dummyFolder = dummyFolder:FindFirstChild("Dummy")
+    end
+    
+    if dummyFolder then
+        for _, dummy in ipairs(dummyFolder:GetChildren()) do
+            if dummy:IsA("Model") and dummy:FindFirstChild("Humanoid") and dummy.Humanoid.Health > 0 then
+                local hrp = dummy:FindFirstChild("HumanoidRootPart")
+                if hrp and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist = (hrp.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                    if dist < nearestDist then
+                        nearestDist = dist
+                        nearest = dummy
+                    end
+                end
+            end
+        end
+    end
+    
+    return nearest
+end
+
+-- Function to equip tool
+local function equipTool()
+    local tool = player.Character:FindFirstChildOfClass("Tool")
+    if tool then return true end
+    
+    tool = player.Backpack:FindFirstChildOfClass("Tool")
+    if tool then
+        player.Character.Humanoid:EquipTool(tool)
+        return true
+    end
+    
+    return false
+end
+
+-- Function to move to position
+local function moveTo(position)
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    
+    local humanoid = player.Character:FindFirstChild("Humanoid")
+    if humanoid then
+        humanoid:MoveTo(position)
+        return true
+    end
+    
+    return false
+end
+
+-- Function to teleport to lobby portal
+local function teleportToLobby()
+    local portal = workspace:FindFirstChild("Lobby")
+    if portal then
+        portal = portal:FindFirstChild("Portal")
+        if portal then
+            portal = portal:FindFirstChild("Part")
+            if portal and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                player.Character.HumanoidRootPart.CFrame = portal.CFrame
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Auto farm toggle
+AutoFarmSection:NewToggle({
+    Name = "Auto Farm Dummies",
+    CurrentValue = false,
+    Flag = "AutoFarm",
+    Callback = function(Value)
+        _G.AutoFarmRunning = Value
+        
+        if Value then
+            spawn(function()
+                MyHub:Notify("Auto Farm", "Starting...", 2)
+                
+                while _G.AutoFarmRunning do
+                    local ch = player.Character
+                    
+                    if not ch or not ch:FindFirstChild("Humanoid") or ch.Humanoid.Health <= 0 then
+                        -- Dead or no character, wait for respawn
+                        wait(3)
+                        
+                        -- Try to get tool
+                        if not equipTool() then
+                            -- No tool, go to portal
+                            teleportToLobby()
+                            wait(2)
+                        end
+                        
+                        wait(1)
+                    else
+                        -- Equip tool if not equipped
+                        if not equipTool() then
+                            teleportToLobby()
+                            wait(2)
+                        else
+                            -- Find nearest dummy
+                            local dummy = findNearestDummy()
+                            
+                            if dummy and dummy:FindFirstChild("Humanoid") and dummy.Humanoid.Health > 0 then
+                                _G.AutoFarmTarget = dummy
+                                local hrp = dummy:FindFirstChild("HumanoidRootPart")
+                                
+                                if hrp then
+                                    -- Move to dummy
+                                    moveTo(hrp.Position)
+                                    
+                                    -- Attack if in range
+                                    local dist = (hrp.Position - ch.HumanoidRootPart.Position).Magnitude
+                                    if dist < 10 then
+                                        -- Activate tool
+                                        local tool = ch:FindFirstChildOfClass("Tool")
+                                        if tool then
+                                            tool:Activate()
+                                        end
+                                        
+                                        -- Fire damage
+                                        local effects = ch:FindFirstChild("Effects")
+                                        local remote = effects and effects:FindFirstChild("DMF")
+                                        if remote then
+                                            remote:FireServer(hrp, damageAmount)
+                                        end
+                                    end
+                                end
+                            else
+                                -- No dummy found, wait
+                                wait(1)
+                            end
+                        end
+                    end
+                    
+                    wait(0.1)
+                end
+                
+                MyHub:Notify("Auto Farm", "Stopped!", 2)
+            end)
+        end
+    end,
+})
+
+AutoFarmSection:NewDropdown({
+    Name = "Farm Target",
+    Options = {"Nearest", "TestDummy1", "TestDummy2", "All Dummies"},
+    CurrentOption = "Nearest",
+    Flag = "FarmTarget",
+    Callback = function(Option)
+        _G.FarmTargetMode = Option
+        MyHub:Notify("Farm Target", "Set to: " .. Option, 2)
+    end,
+})
+
+AutoFarmSection:NewToggle({
+    Name = "Auto Equip Tool",
+    CurrentValue = true,
+    Flag = "AutoEquipTool",
+    Callback = function(Value)
+        _G.AutoEquipTool = Value
+    end,
+})
+
+AutoFarmSection:NewToggle({
+    Name = "Auto Return to Lobby on Death",
+    CurrentValue = true,
+    Flag = "AutoReturnLobby",
+    Callback = function(Value)
+        _G.AutoReturnLobby = Value
+    end,
+})
+
+-- Info section
+local InfoSection = OtherTab:NewSection({Name = "ℹ️ Information"})
+
+InfoSection:NewLabel({
+    Name = "Damage System: Select target and fire damage"
+})
+
+InfoSection:NewLabel({
+    Name = "Kill Aura: Attacks all nearby enemies"
+})
+
+InfoSection:NewLabel({
+    Name = "Auto Farm: Farms dummies automatically"
+})
+
+InfoSection:NewButton({
+    Name = "📊 Show Current Status",
+    Callback = function()
+        local status = "Auto Farm: " .. (_G.AutoFarmRunning and "ON" or "OFF") .. "\n" ..
+                      "Kill Aura: " .. (_G.KillAura and "ON" or "OFF") .. "\n" ..
+                      "Target: " .. (_G.CurrentTarget and _G.CurrentTarget.Name or "None") .. "\n" ..
+                      "Damage: " .. damageAmount
+        
+        MyHub:Notify("Status", status, 5)
+    end,
+})
+
 end)
