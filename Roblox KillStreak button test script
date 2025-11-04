@@ -1001,9 +1001,10 @@ _G.AutoFarmTarget = nil
 _G.CurrentPath = nil
 
 -- Safety configuration
-local MIN_HEIGHT = -250 -- Minimum Y position before considering void
-local MAX_CHASE_DISTANCE = 100 -- Stop chasing if target is too far
+local MIN_HEIGHT = -200 -- Minimum Y position before considering void (arena is at -164)
+local MAX_CHASE_DISTANCE = 500 -- Stop chasing if target is too far
 local ATTACK_RANGE = 10 -- Distance to attack from
+local WAYPOINT_REACH_DISTANCE = 5 -- Distance to consider waypoint reached
 
 -- Function to check if position is safe (not in void)
 local function isSafePosition(position)
@@ -1086,24 +1087,37 @@ local function createPath(targetPosition)
 end
 
 -- Function to follow path
-local function followPath(path)
+local function followPath(path, targetPosition)
     if not path or not player.Character then return false end
     
     local humanoid = player.Character:FindFirstChild("Humanoid")
-    if not humanoid then return false end
+    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+    if not humanoid or not hrp then return false end
     
     local waypoints = path:GetWaypoints()
     
     for i, waypoint in ipairs(waypoints) do
         if not _G.AutoFarmRunning then break end
         
-        -- Check if current position is safe
-        if not isSafePosition(player.Character.HumanoidRootPart.Position) then
-            return false
+        -- Skip waypoints that are behind the player
+        local waypointDirection = (waypoint.Position - hrp.Position)
+        local toTargetDirection = (targetPosition - hrp.Position)
+        
+        -- Check if waypoint is in the general direction of target
+        if waypointDirection:Dot(toTargetDirection) < 0 and i > 1 then
+            continue -- Skip waypoint behind us
         end
         
-        -- Check if waypoint is safe
-        if not isSafePosition(waypoint.Position) then
+        -- Check distance to waypoint
+        local distanceToWaypoint = (waypoint.Position - hrp.Position).Magnitude
+        
+        -- Skip if already close to waypoint
+        if distanceToWaypoint < WAYPOINT_REACH_DISTANCE then
+            continue
+        end
+        
+        -- Check if current position is safe
+        if not isSafePosition(hrp.Position) then
             return false
         end
         
@@ -1113,12 +1127,23 @@ local function followPath(path)
             humanoid.Jump = true
         end
         
+        -- Wait until close to waypoint or timeout
         local timeout = 0
+        local maxTimeout = 3 -- Reduced timeout
+        
         repeat
-            wait(0.1)
-            timeout = timeout + 0.1
-            if timeout > 8 then return false end
-        until (humanoid.MoveToFinished:Wait(0.1) or not _G.AutoFarmRunning or timeout > 8)
+            wait(0.05) -- Faster check
+            timeout = timeout + 0.05
+            
+            if not hrp then break end
+            local currentDist = (waypoint.Position - hrp.Position).Magnitude
+            
+            -- Break if close enough to waypoint
+            if currentDist < WAYPOINT_REACH_DISTANCE then
+                break
+            end
+            
+        until timeout > maxTimeout or not _G.AutoFarmRunning
     end
     
     return true
@@ -1202,6 +1227,9 @@ AutoFarmSection:NewToggle({
                                     
                                     -- Attack if in range
                                     if dist < ATTACK_RANGE then
+                                        -- Stop moving
+                                        ch.Humanoid:MoveTo(ch.HumanoidRootPart.Position)
+                                        
                                         -- Activate tool
                                         local tool = ch:FindFirstChildOfClass("Tool")
                                         if tool then
@@ -1214,15 +1242,19 @@ AutoFarmSection:NewToggle({
                                         if remote then
                                             remote:FireServer(hrp, damageAmount)
                                         end
+                                        
+                                        wait(0.1)
+                                    elseif dist < 30 then
+                                        -- Close enough, use direct movement
+                                        ch.Humanoid:MoveTo(hrp.Position)
                                     else
-                                        -- Use pathfinding to move to dummy
+                                        -- Far away, use pathfinding
                                         local path = createPath(hrp.Position)
                                         if path then
-                                            followPath(path)
+                                            followPath(path, hrp.Position)
                                         else
-                                            -- Pathfinding failed, try direct movement
+                                            -- Pathfinding failed, use direct movement
                                             ch.Humanoid:MoveTo(hrp.Position)
-                                            wait(0.5)
                                         end
                                     end
                                 else
@@ -1258,9 +1290,9 @@ AutoFarmSection:NewDropdown({
 
 AutoFarmSection:NewSlider({
     Name = "Max Chase Distance",
-    Range = {20, 1500},
-    Increment = 10,
-    CurrentValue = 100,
+    Range = {50, 1000},
+    Increment = 50,
+    CurrentValue = 500,
     Flag = "MaxChaseDistance",
     Callback = function(Value)
         MAX_CHASE_DISTANCE = Value
