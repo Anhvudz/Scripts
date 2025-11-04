@@ -1000,6 +1000,8 @@ _G.AutoFarmRunning = false
 _G.AutoFarmTarget = nil
 _G.CurrentPath = nil
 _G.SafetyPlatform = nil
+_G.LastTeleportTime = 0
+_G.TeleportCooldown = 5 -- Teleport every 5 seconds
 
 -- Function to create/update safety platform
 local function createSafetyPlatform()
@@ -1013,15 +1015,15 @@ local function createSafetyPlatform()
     if not _G.SafetyPlatform or not _G.SafetyPlatform.Parent then
         _G.SafetyPlatform = Instance.new("Part")
         _G.SafetyPlatform.Name = "SafetyPlatform"
-        _G.SafetyPlatform.Size = Vector3.new(10, 1, 10)
+        _G.SafetyPlatform.Size = Vector3.new(30, 1, 30) -- Bigger platform
         _G.SafetyPlatform.Transparency = 1
         _G.SafetyPlatform.CanCollide = true
         _G.SafetyPlatform.Anchored = true
         _G.SafetyPlatform.Parent = workspace
     end
     
-    -- Update platform position (under player)
-    _G.SafetyPlatform.CFrame = CFrame.new(hrp.Position.X, hrp.Position.Y - 4, hrp.Position.Z)
+    -- Update platform position at fixed Y level
+    _G.SafetyPlatform.CFrame = CFrame.new(hrp.Position.X, -160, hrp.Position.Z)
 end
 
 -- Function to remove safety platform
@@ -1125,15 +1127,33 @@ end
 -- Function to equip tool
 local function equipTool()
     local tool = player.Character:FindFirstChildOfClass("Tool")
-    if tool then return true end
+    if tool then 
+        expandToolHitbox(tool)
+        return true 
+    end
     
     tool = player.Backpack:FindFirstChildOfClass("Tool")
     if tool then
         player.Character.Humanoid:EquipTool(tool)
+        wait(0.1)
+        expandToolHitbox(tool)
         return true
     end
     
     return false
+end
+
+-- Function to expand tool hitbox
+local function expandToolHitbox(tool)
+    if not tool then return end
+    
+    local hitboxPart = tool:FindFirstChild("Hitbox")
+    if hitboxPart and hitboxPart:IsA("BasePart") then
+        hitboxPart.Size = Vector3.new(5, 8, 6)
+        hitboxPart.CanCollide = false
+        hitboxPart.Massless = true
+        hitboxPart.Transparency = 0.8
+    end
 end
 
 -- Function to create path to target
@@ -1226,7 +1246,24 @@ local function followPath(path, targetPosition)
     return true
 end
 
--- Function to teleport to lobby portal
+-- Function to teleport in front of NPC
+local function teleportToNPC(npc)
+    if not npc or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    
+    local npcHRP = npc:FindFirstChild("HumanoidRootPart")
+    if not npcHRP then return false end
+    
+    -- Calculate position in front of NPC (5 studs away)
+    local npcCFrame = npcHRP.CFrame
+    local offsetPosition = npcCFrame.Position + (npcCFrame.LookVector * -5)
+    
+    -- Teleport player in front of NPC, facing it
+    player.Character.HumanoidRootPart.CFrame = CFrame.new(offsetPosition, npcHRP.Position)
+    
+    return true
+end
 local function teleportToLobby()
     local portal = workspace:FindFirstChild("Lobby")
     if portal then
@@ -1299,6 +1336,14 @@ AutoFarmSection:NewToggle({
                                     end
                                     
                                     local dist = (hrp.Position - ch.HumanoidRootPart.Position).Magnitude
+                                    local currentTime = tick()
+                                    
+                                    -- Teleport every 5 seconds
+                                    if currentTime - _G.LastTeleportTime >= _G.TeleportCooldown then
+                                        teleportToNPC(dummy)
+                                        _G.LastTeleportTime = currentTime
+                                        wait(0.2)
+                                    end
                                     
                                     if dist > MAX_CHASE_DISTANCE then
                                         _G.AutoFarmTarget = nil
@@ -1401,7 +1446,7 @@ AutoFarmSection:NewDropdown({
 
 AutoFarmSection:NewSlider({
     Name = "Max Chase Distance",
-    Range = {50, 10000},
+    Range = {50, 5000},
     Increment = 50,
     CurrentValue = 500,
     Flag = "MaxChaseDistance",
