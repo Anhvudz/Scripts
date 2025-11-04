@@ -1003,9 +1003,9 @@ _G.CurrentPath = nil
 -- Safety configuration
 local MIN_HEIGHT = -200 -- Minimum Y position before considering void (arena is at -164)
 local MAX_CHASE_DISTANCE = 500 -- Stop chasing if target is too far
-local ATTACK_RANGE = 10 -- Distance to attack from
-local WAYPOINT_REACH_DISTANCE = 2.5 -- Distance to consider waypoint reached
-local SAFE_ATTACK_HEIGHT_DIFF = 3.5 -- Max height difference to attack (prevents standing on head)
+local ATTACK_RANGE = 5 -- Distance to attack from
+local WAYPOINT_REACH_DISTANCE = 5 -- Distance to consider waypoint reached
+local SAFE_ATTACK_HEIGHT_DIFF = 7 -- Max height difference to attack (prevents standing on head)
 local TARGET_REVALIDATE_TIME = 0.3 -- How often to check if target is still valid
 
 -- Function to check if position is safe (not in void)
