@@ -969,7 +969,7 @@ KillAuraSection:NewToggle({
 
 KillAuraSection:NewSlider({
     Name = "Kill Aura Range",
-    Range = {5, 50},
+    Range = {5, 1500},
     Increment = 1,
     CurrentValue = 20,
     Flag = "KillAuraRange",
@@ -980,7 +980,7 @@ KillAuraSection:NewSlider({
 
 KillAuraSection:NewSlider({
     Name = "Attack Delay (seconds)",
-    Range = {0.1, 2},
+    Range = {0.1, 5},
     Increment = 0.1,
     CurrentValue = 0.1,
     Flag = "KillAuraDelay",
@@ -1001,7 +1001,7 @@ _G.AutoFarmTarget = nil
 _G.CurrentPath = nil
 
 -- Safety configuration
-local MIN_HEIGHT = 10 -- Minimum Y position before considering void
+local MIN_HEIGHT = -250 -- Minimum Y position before considering void
 local MAX_CHASE_DISTANCE = 100 -- Stop chasing if target is too far
 local ATTACK_RANGE = 10 -- Distance to attack from
 
@@ -1258,7 +1258,7 @@ AutoFarmSection:NewDropdown({
 
 AutoFarmSection:NewSlider({
     Name = "Max Chase Distance",
-    Range = {20, 200},
+    Range = {20, 1500},
     Increment = 10,
     CurrentValue = 100,
     Flag = "MaxChaseDistance",
