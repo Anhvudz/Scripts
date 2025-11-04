@@ -992,9 +992,24 @@ KillAuraSection:NewSlider({
 -- ============ AUTO FARM ============
 local AutoFarmSection = OtherTab:NewSection({Name = "🤖 Auto Farm"})
 
+-- Services
+local PathfindingService = game:GetService("PathfindingService")
+
 -- Auto farm state
 _G.AutoFarmRunning = false
 _G.AutoFarmTarget = nil
+_G.CurrentPath = nil
+
+-- Safety configuration
+local MIN_HEIGHT = 10 -- Minimum Y position before considering void
+local MAX_CHASE_DISTANCE = 100 -- Stop chasing if target is too far
+local ATTACK_RANGE = 10 -- Distance to attack from
+
+-- Function to check if position is safe (not in void)
+local function isSafePosition(position)
+    if not position then return false end
+    return position.Y > MIN_HEIGHT
+end
 
 -- Function to find nearest dummy
 local function findNearestDummy()
@@ -1012,10 +1027,13 @@ local function findNearestDummy()
             if dummy:IsA("Model") and dummy:FindFirstChild("Humanoid") and dummy.Humanoid.Health > 0 then
                 local hrp = dummy:FindFirstChild("HumanoidRootPart")
                 if hrp and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                    local dist = (hrp.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                    if dist < nearestDist then
-                        nearestDist = dist
-                        nearest = dummy
+                    -- Check if dummy is in a safe position
+                    if isSafePosition(hrp.Position) then
+                        local dist = (hrp.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                        if dist < nearestDist and dist < MAX_CHASE_DISTANCE then
+                            nearestDist = dist
+                            nearest = dummy
+                        end
                     end
                 end
             end
@@ -1039,19 +1057,71 @@ local function equipTool()
     return false
 end
 
--- Function to move to position
-local function moveTo(position)
+-- Function to create path to target
+local function createPath(targetPosition)
     if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-        return false
+        return nil
     end
+    
+    local path = PathfindingService:CreatePath({
+        AgentRadius = 2,
+        AgentHeight = 5,
+        AgentCanJump = true,
+        AgentJumpHeight = 10,
+        AgentMaxSlope = 45,
+        Costs = {
+            Water = 20
+        }
+    })
+    
+    local success, errorMsg = pcall(function()
+        path:ComputeAsync(player.Character.HumanoidRootPart.Position, targetPosition)
+    end)
+    
+    if success and path.Status == Enum.PathStatus.Success then
+        return path
+    end
+    
+    return nil
+end
+
+-- Function to follow path
+local function followPath(path)
+    if not path or not player.Character then return false end
     
     local humanoid = player.Character:FindFirstChild("Humanoid")
-    if humanoid then
-        humanoid:MoveTo(position)
-        return true
+    if not humanoid then return false end
+    
+    local waypoints = path:GetWaypoints()
+    
+    for i, waypoint in ipairs(waypoints) do
+        if not _G.AutoFarmRunning then break end
+        
+        -- Check if current position is safe
+        if not isSafePosition(player.Character.HumanoidRootPart.Position) then
+            return false
+        end
+        
+        -- Check if waypoint is safe
+        if not isSafePosition(waypoint.Position) then
+            return false
+        end
+        
+        humanoid:MoveTo(waypoint.Position)
+        
+        if waypoint.Action == Enum.PathWaypointAction.Jump then
+            humanoid.Jump = true
+        end
+        
+        local timeout = 0
+        repeat
+            wait(0.1)
+            timeout = timeout + 0.1
+            if timeout > 8 then return false end
+        until (humanoid.MoveToFinished:Wait(0.1) or not _G.AutoFarmRunning or timeout > 8)
     end
     
-    return false
+    return true
 end
 
 -- Function to teleport to lobby portal
@@ -1085,6 +1155,16 @@ AutoFarmSection:NewToggle({
                 while _G.AutoFarmRunning do
                     local ch = player.Character
                     
+                    -- Check if player is in void
+                    if ch and ch:FindFirstChild("HumanoidRootPart") then
+                        if not isSafePosition(ch.HumanoidRootPart.Position) then
+                            -- Player is falling, stop and wait for respawn
+                            MyHub:Notify("Auto Farm", "Detected void fall, waiting for respawn...", 2)
+                            wait(5)
+                            continue
+                        end
+                    end
+                    
                     if not ch or not ch:FindFirstChild("Humanoid") or ch.Humanoid.Health <= 0 then
                         -- Dead or no character, wait for respawn
                         wait(3)
@@ -1110,13 +1190,18 @@ AutoFarmSection:NewToggle({
                                 _G.AutoFarmTarget = dummy
                                 local hrp = dummy:FindFirstChild("HumanoidRootPart")
                                 
-                                if hrp then
-                                    -- Move to dummy
-                                    moveTo(hrp.Position)
+                                if hrp and isSafePosition(hrp.Position) then
+                                    local dist = (hrp.Position - ch.HumanoidRootPart.Position).Magnitude
+                                    
+                                    -- If target is too far or in void, find new target
+                                    if dist > MAX_CHASE_DISTANCE or not isSafePosition(hrp.Position) then
+                                        _G.AutoFarmTarget = nil
+                                        wait(0.5)
+                                        continue
+                                    end
                                     
                                     -- Attack if in range
-                                    local dist = (hrp.Position - ch.HumanoidRootPart.Position).Magnitude
-                                    if dist < 10 then
+                                    if dist < ATTACK_RANGE then
                                         -- Activate tool
                                         local tool = ch:FindFirstChildOfClass("Tool")
                                         if tool then
@@ -1129,7 +1214,20 @@ AutoFarmSection:NewToggle({
                                         if remote then
                                             remote:FireServer(hrp, damageAmount)
                                         end
+                                    else
+                                        -- Use pathfinding to move to dummy
+                                        local path = createPath(hrp.Position)
+                                        if path then
+                                            followPath(path)
+                                        else
+                                            -- Pathfinding failed, try direct movement
+                                            ch.Humanoid:MoveTo(hrp.Position)
+                                            wait(0.5)
+                                        end
                                     end
+                                else
+                                    -- Target is in void, abandon it
+                                    _G.AutoFarmTarget = nil
                                 end
                             else
                                 -- No dummy found, wait
@@ -1158,6 +1256,18 @@ AutoFarmSection:NewDropdown({
     end,
 })
 
+AutoFarmSection:NewSlider({
+    Name = "Max Chase Distance",
+    Range = {20, 200},
+    Increment = 10,
+    CurrentValue = 100,
+    Flag = "MaxChaseDistance",
+    Callback = function(Value)
+        MAX_CHASE_DISTANCE = Value
+        MyHub:Notify("Max Chase Distance", "Set to: " .. Value, 2)
+    end,
+})
+
 AutoFarmSection:NewToggle({
     Name = "Auto Equip Tool",
     CurrentValue = true,
@@ -1176,6 +1286,16 @@ AutoFarmSection:NewToggle({
     end,
 })
 
+AutoFarmSection:NewToggle({
+    Name = "Void Protection",
+    CurrentValue = true,
+    Flag = "VoidProtection",
+    Callback = function(Value)
+        _G.VoidProtection = Value
+        MyHub:Notify("Void Protection", Value and "Enabled" or "Disabled", 2)
+    end,
+})
+
 -- Info section
 local InfoSection = OtherTab:NewSection({Name = "ℹ️ Information"})
 
@@ -1188,7 +1308,11 @@ InfoSection:NewLabel({
 })
 
 InfoSection:NewLabel({
-    Name = "Auto Farm: Farms dummies automatically"
+    Name = "Auto Farm: Farms dummies with pathfinding"
+})
+
+InfoSection:NewLabel({
+    Name = "⚠️ Void Protection: Prevents falling deaths"
 })
 
 InfoSection:NewButton({
@@ -1197,7 +1321,8 @@ InfoSection:NewButton({
         local status = "Auto Farm: " .. (_G.AutoFarmRunning and "ON" or "OFF") .. "\n" ..
                       "Kill Aura: " .. (_G.KillAura and "ON" or "OFF") .. "\n" ..
                       "Target: " .. (_G.CurrentTarget and _G.CurrentTarget.Name or "None") .. "\n" ..
-                      "Damage: " .. damageAmount
+                      "Damage: " .. damageAmount .. "\n" ..
+                      "Chase Distance: " .. MAX_CHASE_DISTANCE
         
         MyHub:Notify("Status", status, 5)
     end,
