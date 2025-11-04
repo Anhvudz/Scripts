@@ -1100,6 +1100,162 @@ local function followPath(path, targetPosition)
         if not _G.AutoFarmRunning then break end
         
         -- Skip waypoints that are behind the player
+-- ============ AUTO FARM ============
+local AutoFarmSection = OtherTab:NewSection({Name = "🤖 Auto Farm"})
+
+-- Services
+local PathfindingService = game:GetService("PathfindingService")
+
+-- Auto farm state
+_G.AutoFarmRunning = false
+_G.AutoFarmTarget = nil
+_G.CurrentPath = nil
+
+-- Safety configuration
+local MIN_HEIGHT = -200 -- Minimum Y position before considering void (arena is at -164)
+local MAX_CHASE_DISTANCE = 500 -- Stop chasing if target is too far
+local ATTACK_RANGE = 10 -- Distance to attack from
+local WAYPOINT_REACH_DISTANCE = 5 -- Distance to consider waypoint reached
+local SAFE_ATTACK_HEIGHT_DIFF = 8 -- Max height difference to attack (prevents standing on head)
+local TARGET_REVALIDATE_TIME = 0.3 -- How often to check if target is still valid
+
+-- Function to check if position is safe (not in void)
+local function isSafePosition(position)
+    if not position then return false end
+    return position.Y > MIN_HEIGHT
+end
+
+-- Function to check if target is valid and safe
+local function isTargetValid(dummy)
+    if not dummy or not dummy:FindFirstChild("Humanoid") or dummy.Humanoid.Health <= 0 then
+        return false
+    end
+    
+    local hrp = dummy:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    
+    -- Check if target is in safe position
+    if not isSafePosition(hrp.Position) then
+        return false
+    end
+    
+    -- Check if target is not falling too fast (knocked into void)
+    if hrp.AssemblyLinearVelocity.Y < -50 then
+        return false
+    end
+    
+    return true
+end
+
+-- Function to check if can attack target safely
+local function canAttackTarget(playerHRP, targetHRP)
+    if not playerHRP or not targetHRP then return false end
+    
+    local heightDiff = math.abs(playerHRP.Position.Y - targetHRP.Position.Y)
+    
+    -- Don't attack if standing on target's head or target is way above/below
+    if heightDiff > SAFE_ATTACK_HEIGHT_DIFF then
+        return false
+    end
+    
+    -- Check horizontal distance only
+    local horizontalDist = Vector3.new(
+        targetHRP.Position.X - playerHRP.Position.X,
+        0,
+        targetHRP.Position.Z - playerHRP.Position.Z
+    ).Magnitude
+    
+    return horizontalDist < ATTACK_RANGE
+end
+
+-- Function to find nearest dummy
+local function findNearestDummy()
+    local nearest = nil
+    local nearestDist = math.huge
+    
+    -- Check Map.Dummy folder
+    local dummyFolder = workspace:FindFirstChild("Map")
+    if dummyFolder then
+        dummyFolder = dummyFolder:FindFirstChild("Dummy")
+    end
+    
+    if dummyFolder then
+        for _, dummy in ipairs(dummyFolder:GetChildren()) do
+            if dummy:IsA("Model") and dummy:FindFirstChild("Humanoid") and dummy.Humanoid.Health > 0 then
+                local hrp = dummy:FindFirstChild("HumanoidRootPart")
+                if hrp and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    -- Check if dummy is in a safe position
+                    if isSafePosition(hrp.Position) then
+                        local dist = (hrp.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                        if dist < nearestDist and dist < MAX_CHASE_DISTANCE then
+                            nearestDist = dist
+                            nearest = dummy
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return nearest
+end
+
+-- Function to equip tool
+local function equipTool()
+    local tool = player.Character:FindFirstChildOfClass("Tool")
+    if tool then return true end
+    
+    tool = player.Backpack:FindFirstChildOfClass("Tool")
+    if tool then
+        player.Character.Humanoid:EquipTool(tool)
+        return true
+    end
+    
+    return false
+end
+
+-- Function to create path to target
+local function createPath(targetPosition)
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return nil
+    end
+    
+    local path = PathfindingService:CreatePath({
+        AgentRadius = 2,
+        AgentHeight = 5,
+        AgentCanJump = true,
+        AgentJumpHeight = 10,
+        AgentMaxSlope = 45,
+        Costs = {
+            Water = 20
+        }
+    })
+    
+    local success, errorMsg = pcall(function()
+        path:ComputeAsync(player.Character.HumanoidRootPart.Position, targetPosition)
+    end)
+    
+    if success and path.Status == Enum.PathStatus.Success then
+        return path
+    end
+    
+    return nil
+end
+
+-- Function to follow path
+local function followPath(path, targetPosition)
+    if not path or not player.Character then return false end
+    
+    local humanoid = player.Character:FindFirstChild("Humanoid")
+    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+    if not humanoid or not hrp then return false end
+    
+    local waypoints = path:GetWaypoints()
+    
+    for i, waypoint in ipairs(waypoints) do
+        if not _G.AutoFarmRunning then break end
+        
+        -- Skip waypoints that are behind the player
         local waypointDirection = (waypoint.Position - hrp.Position)
         local toTargetDirection = (targetPosition - hrp.Position)
         
@@ -1211,24 +1367,38 @@ AutoFarmSection:NewToggle({
                             -- Find nearest dummy
                             local dummy = findNearestDummy()
                             
-                            if dummy and dummy:FindFirstChild("Humanoid") and dummy.Humanoid.Health > 0 then
+                            if dummy and isTargetValid(dummy) then
                                 _G.AutoFarmTarget = dummy
                                 local hrp = dummy:FindFirstChild("HumanoidRootPart")
                                 
                                 if hrp and isSafePosition(hrp.Position) then
-                                    local dist = (hrp.Position - ch.HumanoidRootPart.Position).Magnitude
-                                    
-                                    -- If target is too far or in void, find new target
-                                    if dist > MAX_CHASE_DISTANCE or not isSafePosition(hrp.Position) then
+                                    -- Revalidate target continuously
+                                    if not isTargetValid(dummy) then
                                         _G.AutoFarmTarget = nil
                                         wait(0.5)
                                         continue
                                     end
                                     
-                                    -- Attack if in range
-                                    if dist < ATTACK_RANGE then
-                                        -- Stop moving
+                                    local dist = (hrp.Position - ch.HumanoidRootPart.Position).Magnitude
+                                    
+                                    -- If target is too far or in void, find new target
+                                    if dist > MAX_CHASE_DISTANCE then
+                                        _G.AutoFarmTarget = nil
+                                        wait(0.5)
+                                        continue
+                                    end
+                                    
+                                    -- Check if can safely attack
+                                    if canAttackTarget(ch.HumanoidRootPart, hrp) then
+                                        -- Stop moving to prevent climbing on head
                                         ch.Humanoid:MoveTo(ch.HumanoidRootPart.Position)
+                                        wait(0.1)
+                                        
+                                        -- Double check target is still valid before attacking
+                                        if not isTargetValid(dummy) then
+                                            _G.AutoFarmTarget = nil
+                                            continue
+                                        end
                                         
                                         -- Activate tool
                                         local tool = ch:FindFirstChildOfClass("Tool")
@@ -1245,16 +1415,34 @@ AutoFarmSection:NewToggle({
                                         
                                         wait(0.1)
                                     elseif dist < 30 then
-                                        -- Close enough, use direct movement
-                                        ch.Humanoid:MoveTo(hrp.Position)
-                                    else
-                                        -- Far away, use pathfinding
-                                        local path = createPath(hrp.Position)
-                                        if path then
-                                            followPath(path, hrp.Position)
+                                        -- Close enough, check target before moving
+                                        if isTargetValid(dummy) then
+                                            -- Move slightly away if too close vertically
+                                            local heightDiff = ch.HumanoidRootPart.Position.Y - hrp.Position.Y
+                                            if heightDiff > 5 then
+                                                -- We're above target, move back a bit
+                                                local moveBack = ch.HumanoidRootPart.Position - (ch.HumanoidRootPart.CFrame.LookVector * 3)
+                                                ch.Humanoid:MoveTo(moveBack)
+                                                wait(0.3)
+                                            else
+                                                ch.Humanoid:MoveTo(hrp.Position)
+                                            end
                                         else
-                                            -- Pathfinding failed, use direct movement
-                                            ch.Humanoid:MoveTo(hrp.Position)
+                                            _G.AutoFarmTarget = nil
+                                        end
+                                    else
+                                        -- Far away, validate before pathfinding
+                                        if isTargetValid(dummy) then
+                                            -- Use pathfinding
+                                            local path = createPath(hrp.Position)
+                                            if path then
+                                                followPath(path, hrp.Position)
+                                            else
+                                                -- Pathfinding failed, use direct movement
+                                                ch.Humanoid:MoveTo(hrp.Position)
+                                            end
+                                        else
+                                            _G.AutoFarmTarget = nil
                                         end
                                     end
                                 else
