@@ -989,7 +989,7 @@ KillAuraSection:NewSlider({
     end,
 })
 
-  -- ============ AUTO FARM ============
+  =-- ============ AUTO FARM ============
 local AutoFarmSection = OtherTab:NewSection({Name = "🤖 Auto Farm"})
 
 -- Services
@@ -999,13 +999,45 @@ local PathfindingService = game:GetService("PathfindingService")
 _G.AutoFarmRunning = false
 _G.AutoFarmTarget = nil
 _G.CurrentPath = nil
+_G.SafetyPlatform = nil
+
+-- Function to create/update safety platform
+local function createSafetyPlatform()
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return
+    end
+    
+    local hrp = player.Character.HumanoidRootPart
+    
+    -- Create platform if it doesn't exist
+    if not _G.SafetyPlatform or not _G.SafetyPlatform.Parent then
+        _G.SafetyPlatform = Instance.new("Part")
+        _G.SafetyPlatform.Name = "SafetyPlatform"
+        _G.SafetyPlatform.Size = Vector3.new(10, 1, 10)
+        _G.SafetyPlatform.Transparency = 1
+        _G.SafetyPlatform.CanCollide = true
+        _G.SafetyPlatform.Anchored = true
+        _G.SafetyPlatform.Parent = workspace
+    end
+    
+    -- Update platform position (under player)
+    _G.SafetyPlatform.CFrame = CFrame.new(hrp.Position.X, hrp.Position.Y - 4, hrp.Position.Z)
+end
+
+-- Function to remove safety platform
+local function removeSafetyPlatform()
+    if _G.SafetyPlatform and _G.SafetyPlatform.Parent then
+        _G.SafetyPlatform:Destroy()
+        _G.SafetyPlatform = nil
+    end
+end
 
 -- Safety configuration
 local MIN_HEIGHT = -200 -- Minimum Y position before considering void (arena is at -164)
 local MAX_CHASE_DISTANCE = 500 -- Stop chasing if target is too far
-local ATTACK_RANGE = 5 -- Distance to attack from
+local ATTACK_RANGE = 10 -- Distance to attack from
 local WAYPOINT_REACH_DISTANCE = 5 -- Distance to consider waypoint reached
-local SAFE_ATTACK_HEIGHT_DIFF = 7 -- Max height difference to attack (prevents standing on head)
+local SAFE_ATTACK_HEIGHT_DIFF = 8 -- Max height difference to attack (prevents standing on head)
 local TARGET_REVALIDATE_TIME = 0.3 -- How often to check if target is still valid
 
 -- Function to check if position is safe (not in void)
@@ -1029,7 +1061,7 @@ local function isTargetValid(dummy)
     end
     
     -- Check if target is not falling too fast (knocked into void)
-    if hrp.AssemblyLinearVelocity.Y < -10 then
+    if hrp.AssemblyLinearVelocity.Y < -50 then
         return false
     end
     
@@ -1040,19 +1072,21 @@ end
 local function canAttackTarget(playerHRP, targetHRP)
     if not playerHRP or not targetHRP then return false end
     
-    local heightDiff = math.abs(playerHRP.Position.Y - targetHRP.Position.Y)
+    local posDiff = playerHRP.Position - targetHRP.Position
+    local heightDiff = posDiff.Y
     
-    -- Don't attack if standing on target's head or target is way above/below
-    if heightDiff > SAFE_ATTACK_HEIGHT_DIFF then
+    -- Don't attack if player is above target (standing on head)
+    if heightDiff > 3 then
+        return false
+    end
+    
+    -- Don't attack if target is way above player
+    if heightDiff < -SAFE_ATTACK_HEIGHT_DIFF then
         return false
     end
     
     -- Check horizontal distance only
-    local horizontalDist = Vector3.new(
-        targetHRP.Position.X - playerHRP.Position.X,
-        0,
-        targetHRP.Position.Z - playerHRP.Position.Z
-    ).Magnitude
+    local horizontalDist = Vector3.new(posDiff.X, 0, posDiff.Z).Magnitude
     
     return horizontalDist < ATTACK_RANGE
 end
@@ -1223,6 +1257,11 @@ AutoFarmSection:NewToggle({
                 MyHub:Notify("Auto Farm", "Starting...", 2)
                 
                 while _G.AutoFarmRunning do
+                    -- Update safety platform
+                    if _G.VoidProtection ~= false then
+                        createSafetyPlatform()
+                    end
+                    
                     local ch = player.Character
                     
                     -- Check if player is in void
@@ -1281,7 +1320,18 @@ AutoFarmSection:NewToggle({
                                     if canAttackTarget(ch.HumanoidRootPart, hrp) then
                                         -- Stop moving to prevent climbing on head
                                         ch.Humanoid:MoveTo(ch.HumanoidRootPart.Position)
-                                        wait(0.1)
+                                        ch.Humanoid.Jump = false
+                                        wait(0.15)
+                                        
+                                        -- Check if still not on head
+                                        local currentHeightDiff = ch.HumanoidRootPart.Position.Y - hrp.Position.Y
+                                        if currentHeightDiff > 3 then
+                                            -- Still on head, move away
+                                            local moveAway = hrp.Position + (ch.HumanoidRootPart.Position - hrp.Position).Unit * 8
+                                            ch.Humanoid:MoveTo(Vector3.new(moveAway.X, hrp.Position.Y, moveAway.Z))
+                                            wait(0.5)
+                                            continue
+                                        end
                                         
                                         -- Double check target is still valid before attacking
                                         if not isTargetValid(dummy) then
@@ -1302,19 +1352,27 @@ AutoFarmSection:NewToggle({
                                             remote:FireServer(hrp, damageAmount)
                                         end
                                         
-                                        wait(0.1)
+                                        wait(0.15)
                                     elseif dist < 30 then
                                         -- Close enough, check target before moving
                                         if isTargetValid(dummy) then
-                                            -- Move slightly away if too close vertically
+                                            -- Check if we're above target
                                             local heightDiff = ch.HumanoidRootPart.Position.Y - hrp.Position.Y
-                                            if heightDiff > 2.5 then
-                                                -- We're above target, move back a bit
-                                                local moveBack = ch.HumanoidRootPart.Position - (ch.HumanoidRootPart.CFrame.LookVector * 3)
-                                                ch.Humanoid:MoveTo(moveBack)
-                                                wait(0.3)
+                                            if heightDiff > 3 then
+                                                -- We're on/above target, move away horizontally
+                                                local awayDirection = (ch.HumanoidRootPart.Position - hrp.Position) * Vector3.new(1, 0, 1)
+                                                if awayDirection.Magnitude < 0.1 then
+                                                    -- If directly above, pick random direction
+                                                    awayDirection = Vector3.new(math.random(-1, 1), 0, math.random(-1, 1))
+                                                end
+                                                local movePos = hrp.Position + awayDirection.Unit * 12
+                                                ch.Humanoid:MoveTo(Vector3.new(movePos.X, hrp.Position.Y, movePos.Z))
+                                                ch.Humanoid.Jump = false
+                                                wait(0.5)
                                             else
+                                                -- Normal movement
                                                 ch.Humanoid:MoveTo(hrp.Position)
+                                                ch.Humanoid.Jump = false
                                             end
                                         else
                                             _G.AutoFarmTarget = nil
@@ -1348,8 +1406,13 @@ AutoFarmSection:NewToggle({
                     wait(0.1)
                 end
                 
+                -- Clean up
+                removeSafetyPlatform()
                 MyHub:Notify("Auto Farm", "Stopped!", 2)
             end)
+        else
+            -- Remove platform when stopped
+            removeSafetyPlatform()
         end
     end,
 })
@@ -1367,7 +1430,7 @@ AutoFarmSection:NewDropdown({
 
 AutoFarmSection:NewSlider({
     Name = "Max Chase Distance",
-    Range = {50, 5000},
+    Range = {50, 1000},
     Increment = 50,
     CurrentValue = 500,
     Flag = "MaxChaseDistance",
@@ -1396,11 +1459,14 @@ AutoFarmSection:NewToggle({
 })
 
 AutoFarmSection:NewToggle({
-    Name = "Void Protection",
+    Name = "Void Protection (Platform)",
     CurrentValue = true,
     Flag = "VoidProtection",
     Callback = function(Value)
         _G.VoidProtection = Value
+        if not Value then
+            removeSafetyPlatform()
+        end
         MyHub:Notify("Void Protection", Value and "Enabled" or "Disabled", 2)
     end,
 })
@@ -1421,7 +1487,7 @@ InfoSection:NewLabel({
 })
 
 InfoSection:NewLabel({
-    Name = "⚠️ Void Protection: Prevents falling deaths"
+    Name = "⚠️ Void Protection: Invisible platform prevents falls"
 })
 
 InfoSection:NewButton({
