@@ -1004,8 +1004,8 @@ _G.CurrentPath = nil
 local MIN_HEIGHT = -200 -- Minimum Y position before considering void (arena is at -164)
 local MAX_CHASE_DISTANCE = 500 -- Stop chasing if target is too far
 local ATTACK_RANGE = 10 -- Distance to attack from
-local WAYPOINT_REACH_DISTANCE = 5 -- Distance to consider waypoint reached
-local SAFE_ATTACK_HEIGHT_DIFF = 8 -- Max height difference to attack (prevents standing on head)
+local WAYPOINT_REACH_DISTANCE = 2.5 -- Distance to consider waypoint reached
+local SAFE_ATTACK_HEIGHT_DIFF = 3.5 -- Max height difference to attack (prevents standing on head)
 local TARGET_REVALIDATE_TIME = 0.3 -- How often to check if target is still valid
 
 -- Function to check if position is safe (not in void)
@@ -1029,7 +1029,7 @@ local function isTargetValid(dummy)
     end
     
     -- Check if target is not falling too fast (knocked into void)
-    if hrp.AssemblyLinearVelocity.Y < -50 then
+    if hrp.AssemblyLinearVelocity.Y < -10 then
         return false
     end
     
@@ -1308,7 +1308,7 @@ AutoFarmSection:NewToggle({
                                         if isTargetValid(dummy) then
                                             -- Move slightly away if too close vertically
                                             local heightDiff = ch.HumanoidRootPart.Position.Y - hrp.Position.Y
-                                            if heightDiff > 5 then
+                                            if heightDiff > 2.5 then
                                                 -- We're above target, move back a bit
                                                 local moveBack = ch.HumanoidRootPart.Position - (ch.HumanoidRootPart.CFrame.LookVector * 3)
                                                 ch.Humanoid:MoveTo(moveBack)
@@ -1367,7 +1367,7 @@ AutoFarmSection:NewDropdown({
 
 AutoFarmSection:NewSlider({
     Name = "Max Chase Distance",
-    Range = {50, 1000},
+    Range = {50, 5000},
     Increment = 50,
     CurrentValue = 500,
     Flag = "MaxChaseDistance",
