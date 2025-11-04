@@ -989,7 +989,7 @@ KillAuraSection:NewSlider({
     end,
 })
 
-  =-- ============ AUTO FARM ============
+  -- ============ AUTO FARM ============
 local AutoFarmSection = OtherTab:NewSection({Name = "🤖 Auto Farm"})
 
 -- Services
