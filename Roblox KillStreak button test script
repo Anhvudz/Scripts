@@ -637,6 +637,598 @@ OtherSection:NewButton({
             -- Setup again
             local success = setupTimeStopButton()
             if success then
+       hlight Hitbox",
+    CurrentValue = false,
+    Flag = "HighlightHitbox",
+    Callback = function(Value)
+        _G.HighlightHitbox = Value
+        
+        local tool = player.Character and player.Character:FindFirstChildOfClass("Tool")
+        if tool then
+            local hitboxPart = tool:FindFirstChild("Hitbox") or tool:FindFirstChild("Handle") or tool:FindFirstChildOfClass("BasePart")
+            
+            if hitboxPart then
+                if Value then
+                    local highlight = Instance.new("SelectionBox")
+                    highlight.Name = "HitboxHighlight"
+                    highlight.Adornee = hitboxPart
+                    highlight.LineThickness = 0.1
+                    highlight.Color3 = Color3.fromRGB(255, 0, 0)
+                    highlight.Parent = hitboxPart
+                else
+                    local highlight = hitboxPart:FindFirstChild("HitboxHighlight")
+                    if highlight then highlight:Destroy() end
+                end
+            end
+        end
+    end,
+})
+
+-- Info section
+local InfoSection = HitboxTab:NewSection({Name = "Information"})
+
+InfoSection:NewLabel({
+    Name = "ℹ️ How to use:"
+})
+
+InfoSection:NewLabel({
+    Name = "1. Set size (X, Y, Z) or use preset"
+})
+
+InfoSection:NewLabel({
+    Name = "2. Equip tool"
+})
+
+InfoSection:NewLabel({
+    Name = "3. Click 'Expand Current Tool'"
+})
+
+InfoSection:NewLabel({
+    Name = "4. Or enable 'Auto-Expand' for automatic"
+})
+
+InfoSection:NewButton({
+    Name = "📊 Show Current Tool Info",
+    Callback = function()
+        local tool = player.Character and player.Character:FindFirstChildOfClass("Tool")
+        
+        if tool then
+            local hitboxPart = tool:FindFirstChild("Hitbox") or tool:FindFirstChild("Handle") or tool:FindFirstChildOfClass("BasePart")
+            
+            if hitboxPart then
+                local size = hitboxPart.Size
+                MyHub:Notify("Tool Info",
+                    "Tool: " .. tool.Name .. "\n" ..
+                    "Part: " .. hitboxPart.Name .. "\n" ..
+                    "Size: " .. math.floor(size.X) .. "x" .. math.floor(size.Y) .. "x" .. math.floor(size.Z), 5)
+            else
+                MyHub:Notify("Info", "No hitbox part found!", 2)
+            end
+        else
+            MyHub:Notify("Error", "No tool equipped!", 2)
+        end
+    end,
+})
+
+
+-- Alternative method - Hook at module level
+InfoSection:NewToggle({
+    Name = "test",
+    CurrentValue = false,
+    Flag = "give soul",
+    Callback = function(Value)
+_G.Give = Value
+        if Value then
+task.spawn(function()
+while _G.Give do
+task.wait(0.02)
+local r = game:GetService("Players").LocalPlayer.PlayerGui.GlovesButton.KillstreakAwaButton.Gamepad
+
+if r then
+r:FireServer()
+end
+end
+end)
+end
+end
+})
+
+-- Alternative method - Hook at module level
+InfoSection:NewToggle({
+    Name = "Kill Aura",
+    CurrentValue = false,
+    Flag = "killAura",
+    Callback = function(Value)
+_G.Killing = Value
+        if Value then
+task.spawn(function()
+
+while _G.Killing do
+wait(1)
+sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", 112412400000)
+sethiddenproperty(game.Players.LocalPlayer, "MaxSimulationRadius", 112412400000)
+for i,d in pairs(game:GetService("Workspace"):GetDescendants()) do
+    if d.ClassName == 'Humanoid' and d.Parent.Name ~= game.Players.LocalPlayer.Name then
+        d.Health = 0
+    end
+end
+end
+end)
+end
+end,
+})
+
+
+local Other = Window:NewTab({Name = "Other"})
+local OtherSection = Other:NewSection({Name = "time stop button✓✓✓✓"})
+
+OtherSection:NewButton({
+    Name = "Get Time Stop Button",
+    Callback = function()
+        MyHub:Notify("Time Stop", "Setting up button...", 2)
+        
+        -- Check if already running
+        if _G.TimeStopButtonActive then
+            MyHub:Notify("Warning", "Already active! Disable first.", 2)
+            return
+        end
+        
+        _G.TimeStopButtonActive = true
+        
+        -- Function to setup the button for current character
+        local function setupTimeStopButton()
+            -- Wait for character to load
+            local character = player.Character or player.CharacterAdded:Wait()
+            wait(0.5)  -- Extra wait for everything to load
+            
+            -- Find tool
+            local tool = character:FindFirstChildOfClass("Tool") or player.Backpack:FindFirstChildOfClass("Tool")
+            
+            if not tool then
+                warn("[TimeStop] No tool found!")
+                return false
+            end
+            
+            local handle = tool:WaitForChild("Handle", 5)
+            if not handle then
+                warn("[TimeStop] No handle found!")
+                return false
+            end
+            
+            print("[TimeStop] Setting up for tool:", tool.Name)
+            
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local TweenService = game:GetService("TweenService")
+            local UserInputService = game:GetService("UserInputService")
+            local mouse = player:GetMouse()
+            local playerGui = player.PlayerGui
+            
+            local equipped = false
+            local onCooldown = false
+            
+            -- Wait for button to exist
+            local skillButtons = playerGui:WaitForChild("SkillButtons", 10)
+            if not skillButtons then
+                warn("[TimeStop] SkillButtons not found!")
+                return false
+            end
+            
+            local buttons = skillButtons:WaitForChild("Buttons", 5)
+            if not buttons then
+                warn("[TimeStop] Buttons not found!")
+                return false
+            end
+            
+            local cButton = buttons:WaitForChild("CButton", 5)
+            if not cButton then
+                warn("[TimeStop] CButton not found!")
+                return false
+            end
+            
+            local tweenInfoSlow = TweenInfo.new(1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, 0, false, 0)
+            local tweenInfoFast = TweenInfo.new(0.1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, 0, false, 0)
+            
+            -- Function to activate time stop
+            local function activateTimeStop()
+                if equipped and not onCooldown then
+                    onCooldown = true
+                    
+                    -- Fire remote
+                    local remote = ReplicatedStorage:FindFirstChild("StopTimeSkillP1")
+                    if remote then
+                        remote:FireServer("PararOTempo")
+                    end
+                    
+                    -- Animate cooldown
+                    if cButton:FindFirstChild("CD") then
+                        TweenService:Create(cButton.CD, tweenInfoFast, {
+                            Size = UDim2.new(1, 0, 1, 0)
+                        }):Play()
+                        
+                        wait(0.1)
+                        
+                        TweenService:Create(cButton.CD, tweenInfoSlow, {
+                            Size = UDim2.new(0, 0, 1, 0)
+                        }):Play()
+                    end
+                    
+                    wait(1)
+                    onCooldown = false
+                    
+                    print("[TimeStop] Activated!")
+                end
+            end
+            
+            -- Connect button click
+            local buttonConnection = cButton.MouseButton1Down:Connect(activateTimeStop)
+            
+            -- Connect key press (Z)
+            local keyConnection = mouse.KeyDown:Connect(function(key)
+                if key:lower() == "z" then
+                    activateTimeStop()
+                end
+            end)
+            
+            -- Connect gamepad (RT)
+            local gamepadConnection = UserInputService.InputBegan:Connect(function(input)
+                if input.KeyCode == Enum.KeyCode.ButtonR2 then
+                    activateTimeStop()
+                end
+            end)
+            
+            -- Tool equipped
+            local equippedConnection = tool.Equipped:Connect(function()
+                equipped = true
+                cButton.Visible = true
+                
+                if UserInputService.KeyboardEnabled then
+                    cButton.Skill.Text = "Z"
+                elseif UserInputService.GamepadEnabled then
+                    cButton.Skill.Text = "RT"
+                end
+                
+                print("[TimeStop] Tool equipped!")
+            end)
+            
+            -- Tool unequipped
+            local unequippedConnection = tool.Unequipped:Connect(function()
+                equipped = false
+                cButton.Visible = false
+                print("[TimeStop] Tool unequipped!")
+            end)
+            
+            -- Store connections for cleanup
+            _G.TimeStopConnections = {
+                buttonConnection,
+                keyConnection,
+                gamepadConnection,
+                equippedConnection,
+                unequippedConnection
+            }
+            
+            print("[TimeStop] ✅ Setup complete!")
+            MyHub:Notify("Time Stop", "✅ Button active! Press Z or click button", 3)
+            return true
+        end
+        
+        -- Setup for current character
+        setupTimeStopButton()
+        
+        -- Reconnect on respawn
+        local respawnConnection = player.CharacterAdded:Connect(function()
+            if not _G.TimeStopButtonActive then return end
+            
+            print("[TimeStop] Respawned! Reconnecting...")
+            
+            -- Disconnect old connections
+            if _G.TimeStopConnections then
+                for _, conn in ipairs(_G.TimeStopConnections) do
+                    pcall(function() conn:Disconnect() end)
+                end
+            end
+            
+            -- Wait a bit for character to fully load
+            wait(2)
+            
+            -- Setup again
+            local success = setupTimeStopButton()
+            if success then
+       hlight Hitbox",
+    CurrentValue = false,
+    Flag = "HighlightHitbox",
+    Callback = function(Value)
+        _G.HighlightHitbox = Value
+        
+        local tool = player.Character and player.Character:FindFirstChildOfClass("Tool")
+        if tool then
+            local hitboxPart = tool:FindFirstChild("Hitbox") or tool:FindFirstChild("Handle") or tool:FindFirstChildOfClass("BasePart")
+            
+            if hitboxPart then
+                if Value then
+                    local highlight = Instance.new("SelectionBox")
+                    highlight.Name = "HitboxHighlight"
+                    highlight.Adornee = hitboxPart
+                    highlight.LineThickness = 0.1
+                    highlight.Color3 = Color3.fromRGB(255, 0, 0)
+                    highlight.Parent = hitboxPart
+                else
+                    local highlight = hitboxPart:FindFirstChild("HitboxHighlight")
+                    if highlight then highlight:Destroy() end
+                end
+            end
+        end
+    end,
+})
+
+-- Info section
+local InfoSection = HitboxTab:NewSection({Name = "Information"})
+
+InfoSection:NewLabel({
+    Name = "ℹ️ How to use:"
+})
+
+InfoSection:NewLabel({
+    Name = "1. Set size (X, Y, Z) or use preset"
+})
+
+InfoSection:NewLabel({
+    Name = "2. Equip tool"
+})
+
+InfoSection:NewLabel({
+    Name = "3. Click 'Expand Current Tool'"
+})
+
+InfoSection:NewLabel({
+    Name = "4. Or enable 'Auto-Expand' for automatic"
+})
+
+InfoSection:NewButton({
+    Name = "📊 Show Current Tool Info",
+    Callback = function()
+        local tool = player.Character and player.Character:FindFirstChildOfClass("Tool")
+        
+        if tool then
+            local hitboxPart = tool:FindFirstChild("Hitbox") or tool:FindFirstChild("Handle") or tool:FindFirstChildOfClass("BasePart")
+            
+            if hitboxPart then
+                local size = hitboxPart.Size
+                MyHub:Notify("Tool Info",
+                    "Tool: " .. tool.Name .. "\n" ..
+                    "Part: " .. hitboxPart.Name .. "\n" ..
+                    "Size: " .. math.floor(size.X) .. "x" .. math.floor(size.Y) .. "x" .. math.floor(size.Z), 5)
+            else
+                MyHub:Notify("Info", "No hitbox part found!", 2)
+            end
+        else
+            MyHub:Notify("Error", "No tool equipped!", 2)
+        end
+    end,
+})
+
+
+-- Alternative method - Hook at module level
+InfoSection:NewToggle({
+    Name = "test",
+    CurrentValue = false,
+    Flag = "give soul",
+    Callback = function(Value)
+_G.Give = Value
+        if Value then
+task.spawn(function()
+while _G.Give do
+task.wait(0.02)
+local r = game:GetService("Players").LocalPlayer.PlayerGui.GlovesButton.KillstreakAwaButton.Gamepad
+
+if r then
+r:FireServer()
+end
+end
+end)
+end
+end
+})
+
+-- Alternative method - Hook at module level
+InfoSection:NewToggle({
+    Name = "Kill Aura",
+    CurrentValue = false,
+    Flag = "killAura",
+    Callback = function(Value)
+_G.Killing = Value
+        if Value then
+task.spawn(function()
+
+while _G.Killing do
+wait(1)
+sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", 112412400000)
+sethiddenproperty(game.Players.LocalPlayer, "MaxSimulationRadius", 112412400000)
+for i,d in pairs(game:GetService("Workspace"):GetDescendants()) do
+    if d.ClassName == 'Humanoid' and d.Parent.Name ~= game.Players.LocalPlayer.Name then
+        d.Health = 0
+    end
+end
+end
+end)
+end
+end,
+})
+
+
+local Other = Window:NewTab({Name = "Other"})
+local OtherSection = Other:NewSection({Name = "time stop button✓✓✓✓"})
+
+OtherSection:NewButton({
+    Name = "Get Time Stop Button",
+    Callback = function()
+        MyHub:Notify("Time Stop", "Setting up button...", 2)
+        
+        -- Check if already running
+        if _G.TimeStopButtonActive then
+            MyHub:Notify("Warning", "Already active! Disable first.", 2)
+            return
+        end
+        
+        _G.TimeStopButtonActive = true
+        
+        -- Function to setup the button for current character
+        local function setupTimeStopButton()
+            -- Wait for character to load
+            local character = player.Character or player.CharacterAdded:Wait()
+            wait(0.5)  -- Extra wait for everything to load
+            
+            -- Find tool
+            local tool = character:FindFirstChildOfClass("Tool") or player.Backpack:FindFirstChildOfClass("Tool")
+            
+            if not tool then
+                warn("[TimeStop] No tool found!")
+                return false
+            end
+            
+            local handle = tool:WaitForChild("Handle", 5)
+            if not handle then
+                warn("[TimeStop] No handle found!")
+                return false
+            end
+            
+            print("[TimeStop] Setting up for tool:", tool.Name)
+            
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local TweenService = game:GetService("TweenService")
+            local UserInputService = game:GetService("UserInputService")
+            local mouse = player:GetMouse()
+            local playerGui = player.PlayerGui
+            
+            local equipped = false
+            local onCooldown = false
+            
+            -- Wait for button to exist
+            local skillButtons = playerGui:WaitForChild("SkillButtons", 10)
+            if not skillButtons then
+                warn("[TimeStop] SkillButtons not found!")
+                return false
+            end
+            
+            local buttons = skillButtons:WaitForChild("Buttons", 5)
+            if not buttons then
+                warn("[TimeStop] Buttons not found!")
+                return false
+            end
+            
+            local cButton = buttons:WaitForChild("CButton", 5)
+            if not cButton then
+                warn("[TimeStop] CButton not found!")
+                return false
+            end
+            
+            local tweenInfoSlow = TweenInfo.new(1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, 0, false, 0)
+            local tweenInfoFast = TweenInfo.new(0.1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, 0, false, 0)
+            
+            -- Function to activate time stop
+            local function activateTimeStop()
+                if equipped and not onCooldown then
+                    onCooldown = true
+                    
+                    -- Fire remote
+                    local remote = ReplicatedStorage:FindFirstChild("StopTimeSkillP1")
+                    if remote then
+                        remote:FireServer("PararOTempo")
+                    end
+                    
+                    -- Animate cooldown
+                    if cButton:FindFirstChild("CD") then
+                        TweenService:Create(cButton.CD, tweenInfoFast, {
+                            Size = UDim2.new(1, 0, 1, 0)
+                        }):Play()
+                        
+                        wait(0.1)
+                        
+                        TweenService:Create(cButton.CD, tweenInfoSlow, {
+                            Size = UDim2.new(0, 0, 1, 0)
+                        }):Play()
+                    end
+                    
+                    wait(1)
+                    onCooldown = false
+                    
+                    print("[TimeStop] Activated!")
+                end
+            end
+            
+            -- Connect button click
+            local buttonConnection = cButton.MouseButton1Down:Connect(activateTimeStop)
+            
+            -- Connect key press (Z)
+            local keyConnection = mouse.KeyDown:Connect(function(key)
+                if key:lower() == "z" then
+                    activateTimeStop()
+                end
+            end)
+            
+            -- Connect gamepad (RT)
+            local gamepadConnection = UserInputService.InputBegan:Connect(function(input)
+                if input.KeyCode == Enum.KeyCode.ButtonR2 then
+                    activateTimeStop()
+                end
+            end)
+            
+            -- Tool equipped
+            local equippedConnection = tool.Equipped:Connect(function()
+                equipped = true
+                cButton.Visible = true
+                
+                if UserInputService.KeyboardEnabled then
+                    cButton.Skill.Text = "Z"
+                elseif UserInputService.GamepadEnabled then
+                    cButton.Skill.Text = "RT"
+                end
+                
+                print("[TimeStop] Tool equipped!")
+            end)
+            
+            -- Tool unequipped
+            local unequippedConnection = tool.Unequipped:Connect(function()
+                equipped = false
+                cButton.Visible = false
+                print("[TimeStop] Tool unequipped!")
+            end)
+            
+            -- Store connections for cleanup
+            _G.TimeStopConnections = {
+                buttonConnection,
+                keyConnection,
+                gamepadConnection,
+                equippedConnection,
+                unequippedConnection
+            }
+            
+            print("[TimeStop] ✅ Setup complete!")
+            MyHub:Notify("Time Stop", "✅ Button active! Press Z or click button", 3)
+            return true
+        end
+        
+        -- Setup for current character
+        setupTimeStopButton()
+        
+        -- Reconnect on respawn
+        local respawnConnection = player.CharacterAdded:Connect(function()
+            if not _G.TimeStopButtonActive then return end
+            
+            print("[TimeStop] Respawned! Reconnecting...")
+            
+            -- Disconnect old connections
+            if _G.TimeStopConnections then
+                for _, conn in ipairs(_G.TimeStopConnections) do
+                    pcall(function() conn:Disconnect() end)
+                end
+            end
+            
+            -- Wait a bit for character to fully load
+            wait(2)
+            
+            -- Setup again
+            local success = setupTimeStopButton()
+            if success then
                 MyHub:Notify("Time Stop", "✅ Reconnected after respawn!", 2)
             else
                 MyHub:Notify("Time Stop", "❌ Failed to reconnect!", 3)
