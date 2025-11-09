@@ -1,0 +1,40 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- YOUR MAIN ACCOUNT DATA (modify these values to match your real stats)
+local PlayerData = {
+    SoloData = {
+        SoloImageID = 7120897383, -- Your actual solo image ID
+        SoloTag = "@Despair", -- Change this to YOUR solo tag
+        SoloName = "câccacacacacaca", -- Your actual username
+        SoloKills = 0, -- Your actual solo kills
+        SoloCreated = true -- Set to true if you had solo
+    },
+    leaderstatsData = {
+        Status = "Killer", -- Or whatever status you had
+        Kills = 0, -- Your actual kills
+        Clicks = 100 -- Your actual clicks
+    },
+    CadentData = {
+        KillsForEvent = 8000 -- Your cadent kills
+    },
+    GlovesData = {
+        Gloves = {
+            -- ADD ALL THE GLOVES YOU HAD
+            "Killstreak", "Destiny", "Present", "Classic Killstreak", 
+            "Frosty" -- etc, add your gloves here
+        }
+    }
+}
+
+-- Send it to server
+local success, err = pcall(function()
+    ReplicatedStorage:WaitForChild("System"):WaitForChild("PutPlayerData"):FireServer(PlayerData)
+end)
+
+if success then
+    print("✅ Data sent successfully!")
+    print("Wait a few seconds, then reset character or rejoin")
+else
+    warn("❌ Error:", err)
+end
+
