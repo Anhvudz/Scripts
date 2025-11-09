@@ -21,7 +21,7 @@ local PlayerData = {
         Gloves = {
             -- ADD ALL THE GLOVES YOU HAD
             "Killstreak", "Destiny", "Present", "Classic Killstreak", 
-            "Frosty", "Cadent", "Grinch", "Divine Star", "Clown", "Transcendent Light", "Revenge", "Slender", "Spooky" -- etc, add your gloves here
+            "Frosty", "Cadent", "Grinch", "Divine Star", "Clown", "Transcendent Light", "Revenge", "Slender", "Spooky", "Cadent Core" -- etc, add your gloves here
         }
     }
 }
