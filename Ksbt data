@@ -5,14 +5,14 @@ local PlayerData = {
     SoloData = {
         SoloImageID = 7120897383, -- Your actual solo image ID
         SoloTag = "@Despair", -- Change this to YOUR solo tag
-        SoloName = "câccacacacacaca", -- Your actual username
-        SoloKills = 0, -- Your actual solo kills
+        SoloName = "idk", -- Your actual username
+        SoloKills = 919191, -- Your actual solo kills
         SoloCreated = true -- Set to true if you had solo
     },
     leaderstatsData = {
         Status = "Killer", -- Or whatever status you had
-        Kills = 0, -- Your actual kills
-        Clicks = 100 -- Your actual clicks
+        Kills = 52756, -- Your actual kills
+        Clicks = 757282 -- Your actual clicks
     },
     CadentData = {
         KillsForEvent = 8000 -- Your cadent kills
@@ -21,7 +21,7 @@ local PlayerData = {
         Gloves = {
             -- ADD ALL THE GLOVES YOU HAD
             "Killstreak", "Destiny", "Present", "Classic Killstreak", 
-            "Frosty", "Cadent" -- etc, add your gloves here
+            "Frosty", "Cadent", "Grinch", "Divine Star", "Clown", "Transcendent Light", "Revenge", "Slender", "Spooky" -- etc, add your gloves here
         }
     }
 }
