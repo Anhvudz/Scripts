@@ -1810,5 +1810,393 @@ TipsSection:NewLabel({
     Name = "⚠️ Only works ONCE per account!"
 })
 
+-- ============ AUTO FARM V2 - HEALTH FLICKER ============
+-- Paste this AFTER the OtherTab section in your main script
+
+local AutoFarm2Tab = Window:NewTab({Name = "Test"})
+local Farm2Section = AutoFarm2Tab:NewSection({Name = "⚡ Advanced Farm"})
+
+-- State
+_G.AutoFarm2Running = false
+_G.HealthFlickerEnabled = true
+_G.FlickerDelay = 0.1
+_G.UseHealMethod = false -- Use DMF remote to heal instead
+_G.OriginalHealths = {}
+_G.LastTeleport2 = 0
+
+-- Config
+local MAX_CHASE_DISTANCE = 500
+local ATTACK_RANGE = 7
+local TELEPORT_COOLDOWN = 5
+
+-- Health flicker function
+local function flickerHealth(dummy)
+    if not dummy or not dummy:FindFirstChild("Humanoid") then return end
+    
+    local hum = dummy.Humanoid
+    local hrp = dummy:FindFirstChild("HumanoidRootPart")
+    local origHealth = hum.Health
+    local origMax = hum.MaxHealth
+    
+    -- Store original
+    if not _G.OriginalHealths[dummy] then
+        _G.OriginalHealths[dummy] = {Health = origHealth, MaxHealth = origMax}
+    end
+    
+    -- Set to 0
+    hum.Health = 0
+    hum.MaxHealth = 0
+    
+    -- Trigger death events
+    pcall(function() hum.Died:Fire() end)
+    pcall(function() dummy:BreakJoints() end)
+    
+    -- Fire massive damage
+    local ch = player.Character
+    if ch then
+        local effects = ch:FindFirstChild("Effects")
+        local remote = effects and effects:FindFirstChild("DMF")
+        if remote then
+            pcall(function()
+                remote:FireServer(hrp, 999999)
+            end)
+        end
+    end
+    
+    -- Wait
+    wait(_G.FlickerDelay)
+    
+    -- Restore health
+    if _G.UseHealMethod and ch then
+        -- Use DMF remote with negative damage to heal
+        local effects = ch:FindFirstChild("Effects")
+        local remote = effects and effects:FindFirstChild("DMF")
+        if remote and hrp then
+            pcall(function()
+                -- Heal back to full
+                local healAmount = -(_G.OriginalHealths[dummy].MaxHealth)
+                remote:FireServer(hrp, healAmount)
+            end)
+        end
+    else
+        -- Direct health restore
+        if _G.OriginalHealths[dummy] then
+            hum.MaxHealth = _G.OriginalHealths[dummy].MaxHealth
+            hum.Health = _G.OriginalHealths[dummy].Health
+        end
+    end
+end
+
+-- Find nearest
+local function findNearest()
+    local nearest = nil
+    local nearestDist = math.huge
+    
+    local folder = workspace:FindFirstChild("Map")
+    if folder then folder = folder:FindFirstChild("Dummy") end
+    
+    if folder then
+        for _, dummy in ipairs(folder:GetChildren()) do
+            if dummy:IsA("Model") and dummy:FindFirstChild("Humanoid") then
+                local hrp = dummy:FindFirstChild("HumanoidRootPart")
+                if hrp and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist = (hrp.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                    if dist < nearestDist and dist < MAX_CHASE_DISTANCE then
+                        nearestDist = dist
+                        nearest = dummy
+                    end
+                end
+            end
+        end
+    end
+    
+    return nearest
+end
+
+-- Equip tool
+local function equipTool()
+    local tool = player.Character:FindFirstChildOfClass("Tool")
+    if tool then return true end
+    
+    tool = player.Backpack:FindFirstChildOfClass("Tool")
+    if tool then
+        player.Character.Humanoid:EquipTool(tool)
+        wait(0.1)
+        
+        local hitbox = tool:FindFirstChild("Hitbox")
+        if hitbox and hitbox:IsA("BasePart") then
+            hitbox.Size = Vector3.new(5, 8, 6)
+            hitbox.CanCollide = false
+            hitbox.Massless = true
+        end
+        return true
+    end
+    
+    return false
+end
+
+-- Teleport to NPC
+local function teleportTo(npc)
+    if not npc or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    
+    local hrp = npc:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    
+    local pos = hrp.CFrame.Position + (hrp.CFrame.LookVector * -7)
+    player.Character.HumanoidRootPart.CFrame = CFrame.new(pos, hrp.Position)
+    
+    return true
+end
+
+-- Main toggle
+Farm2Section:NewToggle({
+    Name = "Auto Farm V2 (Health Flicker)",
+    CurrentValue = false,
+    Flag = "AutoFarm2",
+    Callback = function(Value)
+        _G.AutoFarm2Running = Value
+        
+        if Value then
+            spawn(function()
+                MyHub:Notify("Auto Farm V2", "Starting with health flicker!", 2)
+                
+                while _G.AutoFarm2Running do
+                    local ch = player.Character
+                    
+                    if not ch or not ch:FindFirstChild("Humanoid") or ch.Humanoid.Health <= 0 then
+                        wait(3)
+                        equipTool()
+                        wait(1)
+                    else
+                        if not equipTool() then
+                            wait(1)
+                        else
+                            local dummy = findNearest()
+                            
+                            if dummy and dummy:FindFirstChild("Humanoid") then
+                                local hrp = dummy:FindFirstChild("HumanoidRootPart")
+                                
+                                if hrp then
+                                    local dist = (hrp.Position - ch.HumanoidRootPart.Position).Magnitude
+                                    local currentTime = tick()
+                                    
+                                    -- Teleport every X seconds
+                                    if currentTime - _G.LastTeleport2 >= TELEPORT_COOLDOWN then
+                                        teleportTo(dummy)
+                                        _G.LastTeleport2 = currentTime
+                                        wait(0.2)
+                                    end
+                                    
+                                    -- In range - attack and flicker
+                                    if dist < ATTACK_RANGE then
+                                        ch.Humanoid:MoveTo(ch.HumanoidRootPart.Position)
+                                        
+                                        -- Attack
+                                        local tool = ch:FindFirstChildOfClass("Tool")
+                                        if tool then tool:Activate() end
+                                        
+                                        local effects = ch:FindFirstChild("Effects")
+                                        local remote = effects and effects:FindFirstChild("DMF")
+                                        if remote then
+                                            remote:FireServer(hrp, damageAmount or 10)
+                                        end
+                                        
+                                        -- Flicker health if enabled
+                                        if _G.HealthFlickerEnabled then
+                                            flickerHealth(dummy)
+                                        end
+                                        
+                                        wait(0.2)
+                                    else
+                                        -- Move closer
+                                        ch.Humanoid:MoveTo(hrp.Position)
+                                    end
+                                end
+                            else
+                                wait(1)
+                            end
+                        end
+                    end
+                    
+                    wait(0.1)
+                end
+                
+                MyHub:Notify("Auto Farm V2", "Stopped!", 2)
+            end)
+        end
+    end,
+})
+
+-- Settings
+local SettingsSection = AutoFarm2Tab:NewSection({Name = "⚙️ Settings"})
+
+SettingsSection:NewToggle({
+    Name = "Health Flicker (Fake Death)",
+    CurrentValue = true,
+    Flag = "HealthFlicker",
+    Callback = function(Value)
+        _G.HealthFlickerEnabled = Value
+        MyHub:Notify("Health Flicker", Value and "Enabled" or "Disabled", 2)
+    end,
+})
+
+SettingsSection:NewToggle({
+    Name = "Use Heal Method (DMF Remote)",
+    CurrentValue = false,
+    Flag = "UseHealMethod",
+    Callback = function(Value)
+        _G.UseHealMethod = Value
+        MyHub:Notify("Heal Method", Value and "Using DMF heal" or "Direct restore", 2)
+    end,
+})
+
+SettingsSection:NewSlider({
+    Name = "Flicker Delay (seconds)",
+    Range = {0.05, 2},
+    Increment = 0.05,
+    CurrentValue = 0.1,
+    Flag = "FlickerDelay",
+    Callback = function(Value)
+        _G.FlickerDelay = Value
+    end,
+})
+
+SettingsSection:NewSlider({
+    Name = "Teleport Cooldown (seconds)",
+    Range = {1, 10},
+    Increment = 1,
+    CurrentValue = 5,
+    Flag = "TeleportCooldown2",
+    Callback = function(Value)
+        TELEPORT_COOLDOWN = Value
+    end,
+})
+
+-- Manual actions
+local ActionsSection = AutoFarm2Tab:NewSection({Name = "🎯 Manual Actions"})
+
+ActionsSection:NewButton({
+    Name = "Flicker All NPCs Once",
+    Callback = function()
+        local folder = workspace:FindFirstChild("Map")
+        if folder then folder = folder:FindFirstChild("Dummy") end
+        
+        if folder then
+            local count = 0
+            for _, dummy in ipairs(folder:GetChildren()) do
+                if dummy:IsA("Model") and dummy:FindFirstChild("Humanoid") then
+                    flickerHealth(dummy)
+                    count = count + 1
+                    wait(0.05)
+                end
+            end
+            MyHub:Notify("Flicker", "Flickered " .. count .. " NPCs!", 2)
+        end
+    end,
+})
+
+ActionsSection:NewButton({
+    Name = "Heal All NPCs to Full",
+    Callback = function()
+        local folder = workspace:FindFirstChild("Map")
+        if folder then folder = folder:FindFirstChild("Dummy") end
+        
+        if folder and player.Character then
+            local effects = player.Character:FindFirstChild("Effects")
+            local remote = effects and effects:FindFirstChild("DMF")
+            
+            if remote then
+                local count = 0
+                for _, dummy in ipairs(folder:GetChildren()) do
+                    if dummy:IsA("Model") and dummy:FindFirstChild("Humanoid") then
+                        local hrp = dummy:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            pcall(function()
+                                -- Negative damage = heal
+                                remote:FireServer(hrp, -99999)
+                            end)
+                            count = count + 1
+                        end
+                    end
+                end
+                MyHub:Notify("Heal", "Healed " .. count .. " NPCs!", 2)
+            end
+        end
+    end,
+})
+
+ActionsSection:NewButton({
+    Name = "Damage All NPCs",
+    Callback = function()
+        local folder = workspace:FindFirstChild("Map")
+        if folder then folder = folder:FindFirstChild("Dummy") end
+        
+        if folder and player.Character then
+            local effects = player.Character:FindFirstChild("Effects")
+            local remote = effects and effects:FindFirstChild("DMF")
+            
+            if remote then
+                local count = 0
+                for _, dummy in ipairs(folder:GetChildren()) do
+                    if dummy:IsA("Model") and dummy:FindFirstChild("HumanoidRootPart") then
+                        local hrp = dummy:FindFirstChild("HumanoidRootPart")
+                        pcall(function()
+                            remote:FireServer(hrp, damageAmount or 10)
+                        end)
+                        count = count + 1
+                    end
+                end
+                MyHub:Notify("Damage", "Hit " .. count .. " NPCs!", 2)
+            end
+        end
+    end,
+})
+
+ActionsSection:NewButton({
+    Name = "Teleport to Nearest NPC",
+    Callback = function()
+        local dummy = findNearest()
+        if dummy then
+            teleportTo(dummy)
+            MyHub:Notify("Teleport", "Teleported to " .. dummy.Name, 2)
+        else
+            MyHub:Notify("Error", "No NPCs found!", 2)
+        end
+    end,
+})
+
+ActionsSection:NewButton({
+    Name = "Reset Health Cache",
+    Callback = function()
+        _G.OriginalHealths = {}
+        MyHub:Notify("Reset", "Health cache cleared!", 2)
+    end,
+})
+
+-- Info
+local InfoSection = AutoFarm2Tab:NewSection({Name = "ℹ️ How It Works"})
+
+InfoSection:NewLabel({
+    Name = "Health Flicker: NPC health → 0 → restored"
+})
+
+InfoSection:NewLabel({
+    Name = "Server thinks NPC died = rewards!"
+})
+
+InfoSection:NewLabel({
+    Name = "Heal Method: Uses DMF(-damage) to restore"
+})
+
+InfoSection:NewLabel({
+    Name = "Direct: Sets health directly (faster)"
+})
+
+InfoSection:NewLabel({
+    Name = "⚠️ Lower delay = faster but riskier"
+})
+
 
 end)
