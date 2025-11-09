@@ -21,7 +21,7 @@ local PlayerData = {
         Gloves = {
             -- ADD ALL THE GLOVES YOU HAD
             "Killstreak", "Destiny", "Present", "Classic Killstreak", 
-            "Frosty" -- etc, add your gloves here
+            "Frosty", "Cadent" -- etc, add your gloves here
         }
     }
 }
