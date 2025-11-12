@@ -1907,6 +1907,402 @@ InfoSection:NewLabel({
 InfoSection:NewLabel({
     Name = "⚠️ Lower delay = faster but riskier"
 })
+-- ============ REMOTE SPY TAB (KRNL COMPATIBLE) ============
+
+local RemoteSpyTab = Window:NewTab({Name = "Remote Spy"})
+local SpySection = RemoteSpyTab:NewSection({Name = "🔍 Remote Monitor"})
+
+-- State
+_G.RemoteSpyActive = false
+_G.RemoteCallCount = {}
+_G.SpyFilter = ""
+
+-- Store original functions
+local OriginalFunctions = {}
+
+-- Hook function for RemoteEvent
+local function hookRemoteEvent(remote)
+    if OriginalFunctions[remote] then return end
+    
+    _G.RemoteCallCount[remote] = 0
+    
+    -- Store the original function
+    OriginalFunctions[remote] = remote.FireServer
+    
+    -- Hook using hookfunction (KRNL compatible)
+    local newFunc = newcclosure(function(self, ...)
+        if _G.RemoteSpyActive then
+            local path = remote:GetFullName()
+            
+            -- Check filter
+            if _G.SpyFilter == "" or path:lower():find(_G.SpyFilter) then
+                local args = {...}
+                _G.RemoteCallCount[remote] = _G.RemoteCallCount[remote] + 1
+                
+                if #args > 0 then
+                    local argStr = ""
+                    for i, arg in ipairs(args) do
+                        if type(arg) == "table" then
+                            argStr = argStr .. "table, "
+                        else
+                            argStr = argStr .. tostring(arg) .. ", "
+                        end
+                    end
+                    argStr = argStr:sub(1, -3)
+                    
+                    warn("🔥 [" .. path .. "]:FireServer(" .. argStr .. ")")
+                    
+                    for i, arg in ipairs(args) do
+                        if type(arg) == "table" then
+                            local success, encoded = pcall(function()
+                                return game:GetService("HttpService"):JSONEncode(arg)
+                            end)
+                            if success then
+                                print("  Arg " .. i .. " (table):", encoded)
+                            else
+                                print("  Arg " .. i .. " (table): [Complex table]")
+                            end
+                        else
+                            print("  Arg " .. i .. ":", arg, "(" .. type(arg) .. ")")
+                        end
+                    end
+                else
+                    warn("🔥 [" .. path .. "]:FireServer()")
+                end
+            end
+        end
+        
+        -- Call original function
+        return OriginalFunctions[remote](self, ...)
+    end)
+    
+    -- Replace the method
+    hookfunction(remote.FireServer, newFunc)
+    
+    print("✅ Hooked RemoteEvent:", remote:GetFullName())
+end
+
+-- Hook function for RemoteFunction
+local function hookRemoteFunction(remote)
+    if OriginalFunctions[remote] then return end
+    
+    _G.RemoteCallCount[remote] = 0
+    
+    OriginalFunctions[remote] = remote.InvokeServer
+    
+    local newFunc = newcclosure(function(self, ...)
+        if _G.RemoteSpyActive then
+            local path = remote:GetFullName()
+            
+            if _G.SpyFilter == "" or path:lower():find(_G.SpyFilter) then
+                local args = {...}
+                _G.RemoteCallCount[remote] = _G.RemoteCallCount[remote] + 1
+                
+                if #args > 0 then
+                    local argStr = ""
+                    for i, arg in ipairs(args) do
+                        if type(arg) == "table" then
+                            argStr = argStr .. "table, "
+                        else
+                            argStr = argStr .. tostring(arg) .. ", "
+                        end
+                    end
+                    argStr = argStr:sub(1, -3)
+                    
+                    warn("📞 [" .. path .. "]:InvokeServer(" .. argStr .. ")")
+                    
+                    for i, arg in ipairs(args) do
+                        if type(arg) == "table" then
+                            local success, encoded = pcall(function()
+                                return game:GetService("HttpService"):JSONEncode(arg)
+                            end)
+                            if success then
+                                print("  Arg " .. i .. " (table):", encoded)
+                            else
+                                print("  Arg " .. i .. " (table): [Complex table]")
+                            end
+                        else
+                            print("  Arg " .. i .. ":", arg, "(" .. type(arg) .. ")")
+                        end
+                    end
+                else
+                    warn("📞 [" .. path .. "]:InvokeServer()")
+                end
+            end
+        end
+        
+        return OriginalFunctions[remote](self, ...)
+    end)
+    
+    hookfunction(remote.InvokeServer, newFunc)
+    
+    print("✅ Hooked RemoteFunction:", remote:GetFullName())
+end
+
+-- Hook all remotes
+local function hookAllRemotes()
+    local RS = game:GetService("ReplicatedStorage")
+    local count = 0
+    
+    for _, obj in pairs(RS:GetDescendants()) do
+        if obj:IsA("RemoteEvent") then
+            pcall(function()
+                hookRemoteEvent(obj)
+                count = count + 1
+            end)
+        elseif obj:IsA("RemoteFunction") then
+            pcall(function()
+                hookRemoteFunction(obj)
+                count = count + 1
+            end)
+        end
+    end
+    
+    return count
+end
+
+-- Main toggle
+SpySection:NewToggle({
+    Name = "Enable Remote Spy",
+    CurrentValue = false,
+    Flag = "RemoteSpy",
+    Callback = function(Value)
+        _G.RemoteSpyActive = Value
+        
+        if Value then
+            local count = hookAllRemotes()
+            
+            MyHub:Notify("Remote Spy", "Activated! Hooked " .. count .. " remotes", 3)
+            print("🔍 Remote Spy Active - Check Output (F9)")
+            
+            -- Monitor new remotes
+            game:GetService("ReplicatedStorage").DescendantAdded:Connect(function(obj)
+                if not _G.RemoteSpyActive then return end
+                
+                task.wait(0.1)
+                
+                if obj:IsA("RemoteEvent") then
+                    pcall(function()
+                        hookRemoteEvent(obj)
+                        print("✨ New RemoteEvent detected:", obj:GetFullName())
+                    end)
+                elseif obj:IsA("RemoteFunction") then
+                    pcall(function()
+                        hookRemoteFunction(obj)
+                        print("✨ New RemoteFunction detected:", obj:GetFullName())
+                    end)
+                end
+            end)
+        else
+            MyHub:Notify("Remote Spy", "Deactivated", 2)
+        end
+    end,
+})
+
+-- List all remotes
+local ListSection = RemoteSpyTab:NewSection({Name = "📋 Remote List"})
+
+ListSection:NewButton({
+    Name = "List All Remotes",
+    Callback = function()
+        local RS = game:GetService("ReplicatedStorage")
+        local events = {}
+        local functions = {}
+        
+        for _, obj in pairs(RS:GetDescendants()) do
+            if obj:IsA("RemoteEvent") then
+                table.insert(events, obj:GetFullName())
+            elseif obj:IsA("RemoteFunction") then
+                table.insert(functions, obj:GetFullName())
+            end
+        end
+        
+        print("\n===== REMOTE EVENTS =====")
+        for i, path in ipairs(events) do
+            print(i .. ".", path)
+        end
+        
+        print("\n===== REMOTE FUNCTIONS =====")
+        for i, path in ipairs(functions) do
+            print(i .. ".", path)
+        end
+        
+        print("\nTotal: " .. #events .. " RemoteEvents, " .. #functions .. " RemoteFunctions")
+        
+        MyHub:Notify("Remotes", #events + #functions .. " remotes found! Check Output (F9)", 3)
+    end,
+})
+
+ListSection:NewButton({
+    Name = "Show Call Statistics",
+    Callback = function()
+        print("\n===== REMOTE CALL STATS =====")
+        
+        local sorted = {}
+        for remote, count in pairs(_G.RemoteCallCount) do
+            if count > 0 then
+                table.insert(sorted, {remote = remote, count = count})
+            end
+        end
+        
+        -- Sort by call count
+        table.sort(sorted, function(a, b) return a.count > b.count end)
+        
+        if #sorted == 0 then
+            print("No remotes called yet")
+        else
+            for i, data in ipairs(sorted) do
+                print(i .. ".", data.remote:GetFullName(), "- Called", data.count, "times")
+            end
+        end
+        
+        MyHub:Notify("Stats", #sorted .. " remotes called. Check Output!", 2)
+    end,
+})
+
+ListSection:NewButton({
+    Name = "Clear Call Statistics",
+    Callback = function()
+        _G.RemoteCallCount = {}
+        MyHub:Notify("Stats", "Cleared!", 2)
+    end,
+})
+
+-- Filter section
+local FilterSection = RemoteSpyTab:NewSection({Name = "🔎 Filters"})
+
+_G.SpyFilter = ""
+
+FilterSection:NewTextBoxButton({
+    Name = "Filter by Name",
+    PlaceholderText = "e.g. 'Damage' or 'Kill'",
+    ButtonText = "Set",
+    Flag = "SpyFilter",
+    Callback = function(text)
+        _G.SpyFilter = text:lower()
+        
+        if text == "" then
+            MyHub:Notify("Filter", "Cleared - showing all remotes", 2)
+        else
+            MyHub:Notify("Filter", "Only showing: " .. text, 2)
+        end
+    end,
+})
+
+-- Update hooks to use filter
+local function hookRemoteEventFiltered(remote)
+    if _G.HookedRemotes[remote] then return end
+    _G.HookedRemotes[remote] = true
+    _G.RemoteCallCount[remote] = 0
+    
+    local oldFireServer = remote.FireServer
+    
+    remote.FireServer = function(self, ...)
+        if _G.RemoteSpyActive then
+            local path = remote:GetFullName()
+            
+            -- Check filter
+            if _G.SpyFilter ~= "" and not path:lower():find(_G.SpyFilter) then
+                return oldFireServer(self, ...)
+            end
+            
+            local args = {...}
+            _G.RemoteCallCount[remote] = _G.RemoteCallCount[remote] + 1
+            
+            if #args > 0 then
+                local argStr = ""
+                for i, arg in ipairs(args) do
+                    if type(arg) == "table" then
+                        argStr = argStr .. "table, "
+                    else
+                        argStr = argStr .. tostring(arg) .. ", "
+                    end
+                end
+                argStr = argStr:sub(1, -3)
+                
+                warn("🔥 [" .. path .. "]:FireServer(" .. argStr .. ")")
+                
+                for i, arg in ipairs(args) do
+                    if type(arg) == "table" then
+                        print("  Arg " .. i .. " (table):", game:GetService("HttpService"):JSONEncode(arg))
+                    else
+                        print("  Arg " .. i .. ":", arg, "(" .. type(arg) .. ")")
+                    end
+                end
+            else
+                warn("🔥 [" .. path .. "]:FireServer()")
+            end
+        end
+        
+        return oldFireServer(self, ...)
+    end
+end
+
+-- Test section
+local TestSection = RemoteSpyTab:NewSection({Name = "🧪 Test Remote"})
+
+_G.TestRemotePath = ""
+
+TestSection:NewTextBoxButton({
+    Name = "Remote Path",
+    PlaceholderText = "e.g. System.PutPlayerData",
+    ButtonText = "Set",
+    Flag = "TestRemotePath",
+    Callback = function(text)
+        _G.TestRemotePath = text
+        MyHub:Notify("Test Remote", "Set to: " .. text, 2)
+    end,
+})
+
+TestSection:NewButton({
+    Name = "Fire Test Remote",
+    Callback = function()
+        if _G.TestRemotePath == "" then
+            MyHub:Notify("Error", "Set remote path first!", 2)
+            return
+        end
+        
+        local RS = game:GetService("ReplicatedStorage")
+        local remote = RS:FindFirstChild(_G.TestRemotePath, true)
+        
+        if remote then
+            if remote:IsA("RemoteEvent") then
+                remote:FireServer()
+                MyHub:Notify("Test", "Fired: " .. remote.Name, 2)
+            elseif remote:IsA("RemoteFunction") then
+                pcall(function()
+                    remote:InvokeServer()
+                end)
+                MyHub:Notify("Test", "Invoked: " .. remote.Name, 2)
+            end
+        else
+            MyHub:Notify("Error", "Remote not found!", 2)
+        end
+    end,
+})
+
+-- Info section
+local InfoSection = RemoteSpyTab:NewSection({Name = "ℹ️ How to Use"})
+
+InfoSection:NewLabel({
+    Name = "1. Enable 'Remote Spy'"
+})
+
+InfoSection:NewLabel({
+    Name = "2. Play the game normally"
+})
+
+InfoSection:NewLabel({
+    Name = "3. Press F9 to open Output"
+})
+
+InfoSection:NewLabel({
+    Name = "4. Watch remote calls in real-time"
+})
+
+InfoSection:NewLabel({
+    Name = "🔥 = FireServer | 📞 = InvokeServer"
+})
 
 
 end)
