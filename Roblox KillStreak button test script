@@ -2304,5 +2304,368 @@ InfoSection:NewLabel({
     Name = "🔥 = FireServer | 📞 = InvokeServer"
 })
 
+-- ============ INSTANCE SAVER & LOADER ============
+-- Paste this after your other tabs
+
+local SaveLoadTab = Window:NewTab({Name = "Save/Load"})
+local SaveSection = SaveLoadTab:NewSection({Name = "💾 Save Instance"})
+
+-- State
+_G.InstancePath = "Workspace"
+_G.SaveFileName = "saved_instance"
+
+-- Serialize instance function
+local function serializeInstance(instance, depth)
+    depth = depth or 0
+    local indent = string.rep("  ", depth)
+    local data = {}
+    
+    -- Basic info
+    table.insert(data, indent .. "{\n")
+    table.insert(data, indent .. '  ClassName = "' .. instance.ClassName .. '",\n')
+    table.insert(data, indent .. '  Name = "' .. instance.Name .. '",\n')
+    
+    -- Properties
+    table.insert(data, indent .. "  Properties = {\n")
+    
+    -- Common properties to save
+    local props = {
+        "Anchored", "CanCollide", "Transparency", "Size", "Position", 
+        "CFrame", "Color", "Material", "BrickColor", "Reflectance",
+        "Value", "Text", "TextColor3", "BackgroundColor3", "Image",
+        "Health", "MaxHealth", "WalkSpeed", "JumpPower"
+    }
+    
+    for _, prop in ipairs(props) do
+        local success, value = pcall(function()
+            return instance[prop]
+        end)
+        
+        if success and value ~= nil then
+            if type(value) == "string" then
+                table.insert(data, indent .. '    ' .. prop .. ' = "' .. tostring(value) .. '",\n')
+            elseif typeof(value) == "Vector3" then
+                table.insert(data, indent .. '    ' .. prop .. ' = Vector3.new(' .. value.X .. ', ' .. value.Y .. ', ' .. value.Z .. '),\n')
+            elseif typeof(value) == "CFrame" then
+                local x, y, z = value.Position.X, value.Position.Y, value.Position.Z
+                table.insert(data, indent .. '    ' .. prop .. ' = CFrame.new(' .. x .. ', ' .. y .. ', ' .. z .. '),\n')
+            elseif typeof(value) == "Color3" then
+                table.insert(data, indent .. '    ' .. prop .. ' = Color3.new(' .. value.R .. ', ' .. value.G .. ', ' .. value.B .. '),\n')
+            else
+                table.insert(data, indent .. '    ' .. prop .. ' = ' .. tostring(value) .. ',\n')
+            end
+        end
+    end
+    
+    table.insert(data, indent .. "  },\n")
+    
+    -- Children
+    local children = instance:GetChildren()
+    if #children > 0 then
+        table.insert(data, indent .. "  Children = {\n")
+        
+        for _, child in ipairs(children) do
+            -- Recursively serialize children
+            local childData = serializeInstance(child, depth + 2)
+            table.insert(data, childData)
+        end
+        
+        table.insert(data, indent .. "  },\n")
+    end
+    
+    table.insert(data, indent .. "},\n")
+    
+    return table.concat(data)
+end
+
+-- Deserialize and create instance
+local function deserializeInstance(data, parent)
+    local instance = Instance.new(data.ClassName)
+    instance.Name = data.Name
+    
+    -- Set properties
+    if data.Properties then
+        for prop, value in pairs(data.Properties) do
+            pcall(function()
+                instance[prop] = value
+            end)
+        end
+    end
+    
+    -- Create children
+    if data.Children then
+        for _, childData in ipairs(data.Children) do
+            deserializeInstance(childData, instance)
+        end
+    end
+    
+    instance.Parent = parent
+    return instance
+end
+
+-- Input fields
+SaveSection:NewTextBoxButton({
+    Name = "Instance Path",
+    PlaceholderText = "Workspace.Part or game.Lighting",
+    ButtonText = "Set",
+    CurrentValue = "Workspace",
+    Flag = "InstancePath",
+    Callback = function(text)
+        _G.InstancePath = text
+        MyHub:Notify("Path", "Set to: " .. text, 2)
+    end,
+})
+
+SaveSection:NewTextBoxButton({
+    Name = "File Name",
+    PlaceholderText = "my_instance",
+    ButtonText = "Set",
+    CurrentValue = "saved_instance",
+    Flag = "SaveFileName",
+    Callback = function(text)
+        _G.SaveFileName = text
+        MyHub:Notify("File Name", "Set to: " .. text, 2)
+    end,
+})
+
+-- Save button
+SaveSection:NewButton({
+    Name = "💾 Save Instance to File",
+    Callback = function()
+        if not writefile then
+            MyHub:Notify("Error", "Your executor doesn't support writefile!", 3)
+            return
+        end
+        
+        -- Parse path
+        local pathParts = {}
+        for part in _G.InstancePath:gmatch("[^.]+") do
+            table.insert(pathParts, part)
+        end
+        
+        -- Get instance
+        local instance = game
+        for i, part in ipairs(pathParts) do
+            instance = instance:FindFirstChild(part)
+            if not instance then
+                MyHub:Notify("Error", "Instance not found: " .. _G.InstancePath, 3)
+                return
+            end
+        end
+        
+        MyHub:Notify("Saving", "Serializing " .. instance.Name .. "...", 2)
+        
+        -- Serialize
+        local serialized = "-- Saved Instance: " .. instance.Name .. "\n"
+        serialized = serialized .. "-- Path: " .. _G.InstancePath .. "\n"
+        serialized = serialized .. "-- Date: " .. os.date() .. "\n\n"
+        serialized = serialized .. "return " .. serializeInstance(instance)
+        
+        -- Write to file
+        local fileName = _G.SaveFileName .. ".lua"
+        writefile(fileName, serialized)
+        
+        MyHub:Notify("Success", "Saved to: " .. fileName, 3)
+        print("✅ Saved instance to:", fileName)
+        print("Instance:", instance.Name)
+        print("Children:", #instance:GetDescendants())
+    end,
+})
+
+-- Quick save buttons
+local QuickSection = SaveLoadTab:NewSection({Name = "⚡ Quick Save"})
+
+QuickSection:NewButton({
+    Name = "Save Entire Workspace",
+    Callback = function()
+        _G.InstancePath = "Workspace"
+        _G.SaveFileName = "workspace_" .. os.time()
+        
+        if writefile then
+            local serialized = "return " .. serializeInstance(workspace)
+            writefile(_G.SaveFileName .. ".lua", serialized)
+            MyHub:Notify("Saved", "Workspace saved!", 2)
+        end
+    end,
+})
+
+QuickSection:NewButton({
+    Name = "Save ReplicatedStorage",
+    Callback = function()
+        _G.InstancePath = "ReplicatedStorage"
+        _G.SaveFileName = "replicatedstorage_" .. os.time()
+        
+        if writefile then
+            local serialized = "return " .. serializeInstance(game:GetService("ReplicatedStorage"))
+            writefile(_G.SaveFileName .. ".lua", serialized)
+            MyHub:Notify("Saved", "ReplicatedStorage saved!", 2)
+        end
+    end,
+})
+
+QuickSection:NewButton({
+    Name = "Save Player Character",
+    Callback = function()
+        local char = player.Character
+        if char then
+            _G.SaveFileName = "character_" .. player.Name .. "_" .. os.time()
+            
+            if writefile then
+                local serialized = "return " .. serializeInstance(char)
+                writefile(_G.SaveFileName .. ".lua", serialized)
+                MyHub:Notify("Saved", "Character saved!", 2)
+            end
+        end
+    end,
+})
+
+-- Load section
+local LoadSection = SaveLoadTab:NewSection({Name = "📂 Load Instance"})
+
+_G.LoadFileName = "saved_instance"
+
+LoadSection:NewTextBoxButton({
+    Name = "File Name to Load",
+    PlaceholderText = "saved_instance",
+    ButtonText = "Set",
+    CurrentValue = "saved_instance",
+    Flag = "LoadFileName",
+    Callback = function(text)
+        _G.LoadFileName = text
+        MyHub:Notify("Load File", "Set to: " .. text, 2)
+    end,
+})
+
+LoadSection:NewButton({
+    Name = "📂 Load Instance from File",
+    Callback = function()
+        if not readfile then
+            MyHub:Notify("Error", "Your executor doesn't support readfile!", 3)
+            return
+        end
+        
+        local fileName = _G.LoadFileName
+        if not fileName:find("%.lua$") then
+            fileName = fileName .. ".lua"
+        end
+        
+        -- Read file
+        local success, content = pcall(function()
+            return readfile(fileName)
+        end)
+        
+        if not success then
+            MyHub:Notify("Error", "File not found: " .. fileName, 3)
+            return
+        end
+        
+        MyHub:Notify("Loading", "Parsing file...", 2)
+        
+        -- Load data
+        local loadFunc, err = loadstring(content)
+        if not loadFunc then
+            MyHub:Notify("Error", "Invalid file format!", 3)
+            print("Parse error:", err)
+            return
+        end
+        
+        local data = loadFunc()
+        
+        -- Create instance
+        local newInstance = deserializeInstance(data, workspace)
+        
+        MyHub:Notify("Success", "Loaded: " .. newInstance.Name, 3)
+        print("✅ Loaded instance:", newInstance.Name)
+        print("Location: workspace." .. newInstance.Name)
+        
+        -- Teleport to it if player character exists
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            wait(0.5)
+            
+            local pos = newInstance:GetModelCFrame()
+            if pos then
+                player.Character.HumanoidRootPart.CFrame = pos + Vector3.new(0, 10, 0)
+                MyHub:Notify("Teleport", "Teleported to loaded instance!", 2)
+            end
+        end
+    end,
+})
+
+-- File management
+local FileSection = SaveLoadTab:NewSection({Name = "📁 File Management"})
+
+FileSection:NewButton({
+    Name = "List All Saved Files",
+    Callback = function()
+        if not listfiles then
+            MyHub:Notify("Error", "Your executor doesn't support listfiles!", 3)
+            return
+        end
+        
+        print("\n===== SAVED INSTANCE FILES =====")
+        
+        local files = listfiles(".")
+        local count = 0
+        
+        for _, file in ipairs(files) do
+            if file:find("%.lua$") and not file:find("autoexec") then
+                print("📄", file)
+                count = count + 1
+            end
+        end
+        
+        print("\nTotal:", count, "files")
+        MyHub:Notify("Files", count .. " files found. Check Output!", 2)
+    end,
+})
+
+FileSection:NewButton({
+    Name = "Delete Current File",
+    Callback = function()
+        if not delfile then
+            MyHub:Notify("Error", "Your executor doesn't support delfile!", 3)
+            return
+        end
+        
+        local fileName = _G.LoadFileName
+        if not fileName:find("%.lua$") then
+            fileName = fileName .. ".lua"
+        end
+        
+        local success = pcall(function()
+            delfile(fileName)
+        end)
+        
+        if success then
+            MyHub:Notify("Deleted", fileName .. " deleted!", 2)
+        else
+            MyHub:Notify("Error", "File not found!", 2)
+        end
+    end,
+})
+
+-- Info section
+local InfoSection = SaveLoadTab:NewSection({Name = "ℹ️ How to Use"})
+
+InfoSection:NewLabel({
+    Name = "SAVE: Enter path → Set name → Click Save"
+})
+
+InfoSection:NewLabel({
+    Name = "LOAD: Enter file name → Click Load"
+})
+
+InfoSection:NewLabel({
+    Name = "Files saved in executor/workspace folder"
+})
+
+InfoSection:NewLabel({
+    Name = "⚠️ Requires writefile/readfile support"
+})
+
+InfoSection:NewLabel({
+    Name = "✅ Works on: Synapse, Solara, Fluxus"
+})
+
 
 end)
