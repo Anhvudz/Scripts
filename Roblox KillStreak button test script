@@ -1918,6 +1918,18 @@ local SaveSection = SaveLoadTab:NewSection({Name = "💾 Save Instance"})
 _G.InstancePath = "Workspace"
 _G.SaveFileName = "saved_instance"
 
+-- Helper function to safely encode strings
+local function encodeString(str)
+    -- Use base64-like encoding or escape method
+    local encoded = str:gsub("\\", "\\\\"):gsub("\n", "\\n"):gsub("\r", "\\r"):gsub('"', '\\"')
+    return '"' .. encoded .. '"'
+end
+
+-- Helper function to decode strings
+local function decodeString(str)
+    return str:gsub("\\n", "\n"):gsub("\\r", "\r"):gsub('\\"', '"'):gsub("\\\\", "\\")
+end
+
 -- Serialize instance function
 local function serializeInstance(instance, depth)
     depth = depth or 0
@@ -1926,14 +1938,15 @@ local function serializeInstance(instance, depth)
     
     -- Basic info
     table.insert(data, indent .. "{\n")
-    table.insert(data, indent .. '  ClassName = [[' .. instance.ClassName .. ']],\n')
-    table.insert(data, indent .. '  Name = [[' .. instance.Name .. ']],\n')
+    table.insert(data, indent .. '  ClassName = ' .. encodeString(instance.ClassName) .. ',\n')
+    table.insert(data, indent .. '  Name = ' .. encodeString(instance.Name) .. ',\n')
     
     -- Script source (if it's a script)
     if instance:IsA("Script") or instance:IsA("LocalScript") or instance:IsA("ModuleScript") then
-        local source = instance.Source or ""
-        -- Use multi-line string for source
-        table.insert(data, indent .. '  Source = [[' .. source .. ']],\n')
+        local success, source = pcall(function() return instance.Source end)
+        if success and source then
+            table.insert(data, indent .. '  Source = ' .. encodeString(source) .. ',\n')
+        end
     end
     
     -- Properties
@@ -1957,8 +1970,7 @@ local function serializeInstance(instance, depth)
             local propType = typeof(value)
             
             if type(value) == "string" then
-                -- Use multi-line string literal for safety
-                valueStr = '[[' .. value .. ']]'
+                valueStr = encodeString(value)
             elseif type(value) == "number" then
                 valueStr = tostring(value)
             elseif type(value) == "boolean" then
@@ -1967,12 +1979,15 @@ local function serializeInstance(instance, depth)
                 valueStr = string.format("Vector3.new(%f, %f, %f)", value.X, value.Y, value.Z)
             elseif propType == "CFrame" then
                 local components = {value:GetComponents()}
-                valueStr = string.format("CFrame.new(%f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f)", 
-                    unpack(components))
+                local numStr = {}
+                for i, v in ipairs(components) do
+                    table.insert(numStr, tostring(v))
+                end
+                valueStr = "CFrame.new(" .. table.concat(numStr, ", ") .. ")"
             elseif propType == "Color3" then
                 valueStr = string.format("Color3.new(%f, %f, %f)", value.R, value.G, value.B)
             elseif propType == "BrickColor" then
-                valueStr = 'BrickColor.new([[' .. tostring(value) .. ']])'
+                valueStr = 'BrickColor.new(' .. encodeString(tostring(value)) .. ')'
             elseif propType == "EnumItem" then
                 valueStr = 'Enum.' .. tostring(value.EnumType) .. '.' .. value.Name
             else
@@ -2014,7 +2029,9 @@ local function deserializeInstance(data, parent)
     
     -- Set script source if it exists
     if data.Source and (instance:IsA("Script") or instance:IsA("LocalScript") or instance:IsA("ModuleScript")) then
-        instance.Source = data.Source
+        pcall(function()
+            instance.Source = data.Source
+        end)
     end
     
     -- Set properties
@@ -2300,6 +2317,5 @@ InfoSection:NewLabel({
 InfoSection:NewLabel({
     Name = "✅ Works on: Synapse, Solara, Fluxus"
 })
-
 
 end)
