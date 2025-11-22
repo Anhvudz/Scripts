@@ -1926,8 +1926,15 @@ local function serializeInstance(instance, depth)
     
     -- Basic info
     table.insert(data, indent .. "{\n")
-    table.insert(data, indent .. '  ClassName = "' .. instance.ClassName .. '",\n')
-    table.insert(data, indent .. '  Name = "' .. instance.Name .. '",\n')
+    table.insert(data, indent .. '  ClassName = [[' .. instance.ClassName .. ']],\n')
+    table.insert(data, indent .. '  Name = [[' .. instance.Name .. ']],\n')
+    
+    -- Script source (if it's a script)
+    if instance:IsA("Script") or instance:IsA("LocalScript") or instance:IsA("ModuleScript") then
+        local source = instance.Source or ""
+        -- Use multi-line string for source
+        table.insert(data, indent .. '  Source = [[' .. source .. ']],\n')
+    end
     
     -- Properties
     table.insert(data, indent .. "  Properties = {\n")
@@ -1936,7 +1943,8 @@ local function serializeInstance(instance, depth)
     local props = {
         "Anchored", "CanCollide", "Transparency", "Size", "Position", 
         "CFrame", "Color", "Material", "Reflectance",
-        "Value", "Text", "Health", "MaxHealth", "WalkSpeed", "JumpPower"
+        "Value", "Text", "Health", "MaxHealth", "WalkSpeed", "JumpPower",
+        "Enabled", "Disabled"
     }
     
     for _, prop in ipairs(props) do
@@ -1945,25 +1953,35 @@ local function serializeInstance(instance, depth)
         end)
         
         if success and value ~= nil then
+            local valueStr = ""
+            local propType = typeof(value)
+            
             if type(value) == "string" then
-                -- Escape quotes in strings
-                local escaped = value:gsub('"', '\\"'):gsub('\n', '\\n')
-                table.insert(data, indent .. '    ' .. prop .. ' = "' .. escaped .. '",\n')
+                -- Use multi-line string literal for safety
+                valueStr = '[[' .. value .. ']]'
             elseif type(value) == "number" then
-                table.insert(data, indent .. '    ' .. prop .. ' = ' .. tostring(value) .. ',\n')
+                valueStr = tostring(value)
             elseif type(value) == "boolean" then
-                table.insert(data, indent .. '    ' .. prop .. ' = ' .. tostring(value) .. ',\n')
-            elseif typeof(value) == "Vector3" then
-                table.insert(data, indent .. '    ' .. prop .. ' = Vector3.new(' .. value.X .. ', ' .. value.Y .. ', ' .. value.Z .. '),\n')
-            elseif typeof(value) == "CFrame" then
-                local x, y, z = value.Position.X, value.Position.Y, value.Position.Z
-                table.insert(data, indent .. '    ' .. prop .. ' = CFrame.new(' .. x .. ', ' .. y .. ', ' .. z .. '),\n')
-            elseif typeof(value) == "Color3" then
-                table.insert(data, indent .. '    ' .. prop .. ' = Color3.new(' .. value.R .. ', ' .. value.G .. ', ' .. value.B .. '),\n')
-            elseif typeof(value) == "BrickColor" then
-                table.insert(data, indent .. '    ' .. prop .. ' = BrickColor.new("' .. tostring(value) .. '"),\n')
-            elseif typeof(value) == "EnumItem" then
-                table.insert(data, indent .. '    ' .. prop .. ' = Enum.' .. tostring(value.EnumType) .. '.' .. value.Name .. ',\n')
+                valueStr = tostring(value)
+            elseif propType == "Vector3" then
+                valueStr = string.format("Vector3.new(%f, %f, %f)", value.X, value.Y, value.Z)
+            elseif propType == "CFrame" then
+                local components = {value:GetComponents()}
+                valueStr = string.format("CFrame.new(%f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f)", 
+                    unpack(components))
+            elseif propType == "Color3" then
+                valueStr = string.format("Color3.new(%f, %f, %f)", value.R, value.G, value.B)
+            elseif propType == "BrickColor" then
+                valueStr = 'BrickColor.new([[' .. tostring(value) .. ']])'
+            elseif propType == "EnumItem" then
+                valueStr = 'Enum.' .. tostring(value.EnumType) .. '.' .. value.Name
+            else
+                -- Skip unsupported types
+                success = false
+            end
+            
+            if success and valueStr ~= "" then
+                table.insert(data, indent .. '    ' .. prop .. ' = ' .. valueStr .. ',\n')
             end
         end
     end
@@ -1993,6 +2011,11 @@ end
 local function deserializeInstance(data, parent)
     local instance = Instance.new(data.ClassName)
     instance.Name = data.Name
+    
+    -- Set script source if it exists
+    if data.Source and (instance:IsA("Script") or instance:IsA("LocalScript") or instance:IsA("ModuleScript")) then
+        instance.Source = data.Source
+    end
     
     -- Set properties
     if data.Properties then
@@ -2277,5 +2300,6 @@ InfoSection:NewLabel({
 InfoSection:NewLabel({
     Name = "✅ Works on: Synapse, Solara, Fluxus"
 })
+
 
 end)
