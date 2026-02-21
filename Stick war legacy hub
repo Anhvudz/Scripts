@@ -1,0 +1,418 @@
+-- ============ STICK WAR LEGACY HUB ============
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local player = Players.LocalPlayer
+
+-- Load UI Library
+local function loadMyHub()
+    local success, result = pcall(function()
+        return loadstring(game:HttpGet('https://raw.githubusercontent.com/Anhvudz/Scripts/main/My%20hub%20script'))()
+    end)
+    if not success or not result then
+        warn("Failed to load MyHub library")
+        return nil
+    end
+    return result
+end
+
+spawn(function()
+    wait(1)
+    
+    local MyHub = loadMyHub()
+    if not MyHub then 
+        warn("MyHub failed to load!")
+        return 
+    end
+    
+    print("✅ MyHub loaded successfully!")
+    
+    -- Create Window
+    local Window = MyHub:CreateWindow({
+        Name = "Stick War Legacy Hub",
+        LoadingTitle = "Loading Hub...",
+        LoadingSubtitle = "Stick War Features"
+    })
+    
+    if not Window then
+        warn("Window creation failed!")
+        return
+    end
+    
+    -- ============ BASIC TAB ============
+    local BasicTab = Window:NewTab({Name = "Basic"})
+    local MineSection = BasicTab:NewSection({Name = "⛏️ Mining"})
+    
+    -- Mine Aura
+    _G.MineAura = false
+    
+    MineSection:NewToggle({
+        Name = "Mine Aura",
+        CurrentValue = false,
+        Flag = "MineAura",
+        Callback = function(Value)
+            _G.MineAura = Value
+            
+            if Value then
+                spawn(function()
+                    MyHub:Notify("Mine Aura", "Activated!", 2)
+                    
+                    while _G.MineAura do
+                        if player.Character then
+                            local mineRemote = player.Character:FindFirstChild("Mine")
+                            
+                            if mineRemote and mineRemote:IsA("RemoteEvent") then
+                                pcall(function()
+                                    mineRemote:FireServer("ANTI HACK")
+                                end)
+                            end
+                        end
+                        
+                        wait(0.01)
+                    end
+                end)
+            else
+                MyHub:Notify("Mine Aura", "Deactivated!", 2)
+            end
+        end,
+    })
+    
+    MineSection:NewButton({
+        Name = "Mine Once",
+        Callback = function()
+            if player.Character then
+                local mineRemote = player.Character:FindFirstChild("Mine")
+                
+                if mineRemote and mineRemote:IsA("RemoteEvent") then
+                    mineRemote:FireServer("ANTI HACK")
+                    MyHub:Notify("Mine", "Mined once!", 1)
+                else
+                    MyHub:Notify("Error", "Mine remote not found!", 2)
+                end
+            end
+        end,
+    })
+    
+    -- Anti-Cheat Bypass
+    local BypassSection = BasicTab:NewSection({Name = "🛡️ Bypass"})
+    
+    _G.BypassAntiCheat = false
+    
+    BypassSection:NewToggle({
+        Name = "Bypass Speed Anti-Cheat",
+        CurrentValue = false,
+        Flag = "BypassAntiCheat",
+        Callback = function(Value)
+            _G.BypassAntiCheat = Value
+            
+            if Value then
+                spawn(function()
+                    MyHub:Notify("Bypass", "Removing anti-cheat scripts...", 2)
+                    
+                    while _G.BypassAntiCheat do
+                        if player.Character then
+                            for _, script in pairs(player.Character:GetDescendants()) do
+                                if script:IsA("Script") or script:IsA("LocalScript") then
+                                    local name = script.Name:lower()
+                                    
+                                    if name:find("anticheat") or name:find("anti") or name:find("cheat") then
+                                        script:Destroy()
+                                        print("🗑️ Removed:", script.Name)
+                                    end
+                                end
+                            end
+                        end
+                        
+                        wait(1)
+                    end
+                end)
+            else
+                MyHub:Notify("Bypass", "Deactivated!", 2)
+            end
+        end,
+    })
+    
+    BypassSection:NewButton({
+        Name = "Remove Anti-Cheat Once",
+        Callback = function()
+            local count = 0
+            
+            if player.Character then
+                for _, script in pairs(player.Character:GetDescendants()) do
+                    if script:IsA("Script") or script:IsA("LocalScript") then
+                        local name = script.Name:lower()
+                        
+                        if name:find("anticheat") or name:find("anti") or name:find("cheat") then
+                            script:Destroy()
+                            count = count + 1
+                        end
+                    end
+                end
+            end
+            
+            MyHub:Notify("Removed", count .. " anti-cheat scripts", 2)
+        end,
+    })
+    
+    -- ============ COMBAT TAB ============
+    local CombatTab = Window:NewTab({Name = "Combat"})
+    local TargetSection = CombatTab:NewSection({Name = "🎯 Target Selection"})
+    
+    -- Target storage
+    _G.CurrentTarget = nil
+    _G.AvailableTargets = {}
+    _G.AttackType = "Stun and Damage"
+    
+    -- Function to update target list
+    local function updateTargetList()
+        _G.AvailableTargets = {}
+        
+        -- Get NPCs from Workspace
+        for _, obj in pairs(Workspace:GetChildren()) do
+            if obj:IsA("Model") and obj:FindFirstChild("Hitboxes") and obj ~= player.Character then
+                table.insert(_G.AvailableTargets, {
+                    Name = obj.Name,
+                    Model = obj,
+                    Type = "NPC"
+                })
+            end
+        end
+        
+        -- Get other players
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr ~= player and plr.Character and plr.Character:FindFirstChild("Hitboxes") then
+                table.insert(_G.AvailableTargets, {
+                    Name = plr.Name,
+                    Model = plr.Character,
+                    Type = "Player"
+                })
+            end
+        end
+        
+        return _G.AvailableTargets
+    end
+    
+    -- Auto-update targets
+    spawn(function()
+        while wait(1) do
+            updateTargetList()
+        end
+    end)
+    
+    TargetSection:NewButton({
+        Name = "Refresh Target List",
+        Callback = function()
+            local targets = updateTargetList()
+            MyHub:Notify("Targets", "Found " .. #targets .. " targets", 2)
+            
+            print("\n===== AVAILABLE TARGETS =====")
+            for i, target in ipairs(targets) do
+                print(i .. ".", target.Name, "(" .. target.Type .. ")")
+            end
+        end,
+    })
+    
+    TargetSection:NewDropdown({
+        Name = "Select Target",
+        Options = {"None", "Nearest Enemy", "Nearest Player"},
+        CurrentOption = "None",
+        Flag = "TargetSelect",
+        Callback = function(Option)
+            if Option == "Nearest Enemy" then
+                -- Find nearest NPC
+                local nearest = nil
+                local nearestDist = math.huge
+                
+                for _, target in pairs(_G.AvailableTargets) do
+                    if target.Type == "NPC" and target.Model:FindFirstChild("HumanoidRootPart") and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                        local dist = (target.Model.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                        if dist < nearestDist then
+                            nearestDist = dist
+                            nearest = target
+                        end
+                    end
+                end
+                
+                if nearest then
+                    _G.CurrentTarget = nearest
+                    MyHub:Notify("Target", "Selected: " .. nearest.Name, 2)
+                else
+                    MyHub:Notify("Error", "No enemies found!", 2)
+                end
+                
+            elseif Option == "Nearest Player" then
+                -- Find nearest player
+                local nearest = nil
+                local nearestDist = math.huge
+                
+                for _, target in pairs(_G.AvailableTargets) do
+                    if target.Type == "Player" and target.Model:FindFirstChild("HumanoidRootPart") and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                        local dist = (target.Model.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                        if dist < nearestDist then
+                            nearestDist = dist
+                            nearest = target
+                        end
+                    end
+                end
+                
+                if nearest then
+                    _G.CurrentTarget = nearest
+                    MyHub:Notify("Target", "Selected: " .. nearest.Name, 2)
+                else
+                    MyHub:Notify("Error", "No players found!", 2)
+                end
+            else
+                _G.CurrentTarget = nil
+                MyHub:Notify("Target", "Cleared", 2)
+            end
+        end,
+    })
+    
+    -- Attack Section
+    local AttackSection = CombatTab:NewSection({Name = "⚔️ Attack"})
+    
+    AttackSection:NewDropdown({
+        Name = "Attack Type",
+        Options = {"Stun and Damage"},
+        CurrentOption = "Stun and Damage",
+        Flag = "AttackType",
+        Callback = function(Option)
+            _G.AttackType = Option
+            MyHub:Notify("Attack Type", "Set to: " .. Option, 2)
+        end,
+    })
+    
+    AttackSection:NewLabel({
+        Name = "ℹ️ Attack Type Info:"
+    })
+    
+    AttackSection:NewLabel({
+        Name = "Stun and Damage: Needs Spearton unit"
+    })
+    
+    AttackSection:NewButton({
+        Name = "🔥 Stun and Damage Target",
+        Callback = function()
+            if not _G.CurrentTarget then
+                MyHub:Notify("Error", "No target selected!", 2)
+                return
+            end
+            
+            local target = _G.CurrentTarget.Model
+            
+            if not target or not target:FindFirstChild("Hitboxes") then
+                MyHub:Notify("Error", "Target invalid or no hitboxes!", 2)
+                return
+            end
+            
+            -- Get target hitboxes
+            local hitboxes = target:FindFirstChild("Hitboxes")
+            
+            if not hitboxes then
+                MyHub:Notify("Error", "Target has no hitboxes!", 2)
+                return
+            end
+            
+            -- Fire helmet attack
+            local helmetAttack = ReplicatedStorage:FindFirstChild("HelmetAttack")
+            
+            if not helmetAttack then
+                MyHub:Notify("Error", "HelmetAttack remote not found!", 2)
+                return
+            end
+            
+            -- Attack all hitboxes
+            local count = 0
+            for _, hitbox in pairs(hitboxes:GetDescendants()) do
+                if hitbox:IsA("BasePart") then
+                    pcall(function()
+                        helmetAttack:FireServer(hitbox)
+                    end)
+                    count = count + 1
+                end
+            end
+            
+            MyHub:Notify("Attack", "Hit " .. count .. " hitboxes on " .. _G.CurrentTarget.Name, 2)
+        end,
+    })
+    
+    AttackSection:NewButton({
+        Name = "Spam Attack (10x)",
+        Callback = function()
+            if not _G.CurrentTarget then
+                MyHub:Notify("Error", "No target selected!", 2)
+                return
+            end
+            
+            spawn(function()
+                for i = 1, 10 do
+                    local target = _G.CurrentTarget.Model
+                    
+                    if target and target:FindFirstChild("Hitboxes") then
+                        local hitboxes = target:FindFirstChild("Hitboxes")
+                        local helmetAttack = ReplicatedStorage:FindFirstChild("HelmetAttack")
+                        
+                        if helmetAttack then
+                            for _, hitbox in pairs(hitboxes:GetDescendants()) do
+                                if hitbox:IsA("BasePart") then
+                                    pcall(function()
+                                        helmetAttack:FireServer(hitbox)
+                                    end)
+                                end
+                            end
+                        end
+                    end
+                    
+                    wait(0.1)
+                end
+                
+                MyHub:Notify("Attack", "Spam complete!", 2)
+            end)
+        end,
+    })
+    
+    -- ============ INFO TAB ============
+    local InfoTab = Window:NewTab({Name = "Info"})
+    local InfoSection = InfoTab:NewSection({Name = "ℹ️ Information"})
+    
+    InfoSection:NewLabel({
+        Name = "Stick War Legacy Hub"
+    })
+    
+    InfoSection:NewLabel({
+        Name = "Version: 1.0"
+    })
+    
+    InfoSection:NewButton({
+        Name = "Show Current Target",
+        Callback = function()
+            if _G.CurrentTarget then
+                local info = "Name: " .. _G.CurrentTarget.Name .. "\n" ..
+                            "Type: " .. _G.CurrentTarget.Type
+                
+                MyHub:Notify("Current Target", info, 3)
+            else
+                MyHub:Notify("Target", "No target selected", 2)
+            end
+        end,
+    })
+    
+    InfoSection:NewButton({
+        Name = "Show Stats",
+        Callback = function()
+            local targetCount = #_G.AvailableTargets
+            local mineStatus = _G.MineAura and "ON" or "OFF"
+            local bypassStatus = _G.BypassAntiCheat and "ON" or "OFF"
+            
+            local stats = "Mine Aura: " .. mineStatus .. "\n" ..
+                         "Bypass: " .. bypassStatus .. "\n" ..
+                         "Targets: " .. targetCount .. "\n" ..
+                         "Attack Type: " .. _G.AttackType
+            
+            MyHub:Notify("Stats", stats, 5)
+        end,
+    })
+    
+    print("✅ Stick War Legacy Hub loaded!")
+end)
