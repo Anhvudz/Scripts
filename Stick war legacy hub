@@ -69,7 +69,7 @@ spawn(function()
                             end
                         end
                         
-                        wait(0.01)
+                        wait(0.0001)
                     end
                 end)
             else
