@@ -64,7 +64,7 @@ spawn(function()
                             
                             if mineRemote and mineRemote:IsA("RemoteEvent") then
                                 pcall(function()
-                                    mineRemote:FireServer("ANTI HACK")
+                                    mineRemote:FireServer("ANTIHACK")
                                 end)
                             end
                         end
@@ -85,7 +85,7 @@ spawn(function()
                 local mineRemote = player.Character:FindFirstChild("Mine")
                 
                 if mineRemote and mineRemote:IsA("RemoteEvent") then
-                    mineRemote:FireServer("ANTI HACK")
+                    mineRemote:FireServer("ANTIHACK")
                     MyHub:Notify("Mine", "Mined once!", 1)
                 else
                     MyHub:Notify("Error", "Mine remote not found!", 2)
