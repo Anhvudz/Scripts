@@ -47,36 +47,52 @@ spawn(function()
     -- Mine Aura
     _G.MineAura = false
     
-    MineSection:NewToggle({
-        Name = "Mine Aura",
-        CurrentValue = false,
-        Flag = "MineAura",
-        Callback = function(Value)
-            _G.MineAura = Value
-            
-            if Value then
-                spawn(function()
-                    MyHub:Notify("Mine Aura", "Activated!", 2)
-                    
-                    while _G.MineAura do
-                        if player.Character then
-                            local mineRemote = player.Character:FindFirstChild("Mine")
-                            
-                            if mineRemote and mineRemote:IsA("RemoteEvent") then
-                                pcall(function()
-                                    mineRemote:FireServer("ANTIHACK")
-                                end)
-                            end
-                        end
+    _G.MineDelay = 0.01
+
+
+MineSection:NewTextBoxButton({
+    Name = "Mine Delay (seconds)",
+    PlaceholderText = "0.01",
+    ButtonText = "Set",
+    CurrentValue = "0.01",
+    Flag = "MineDelay",
+    Callback = function(text)
+        _G.MineDelay = tonumber(text) or 0.01
+        MyHub:Notify("Mine Delay", "Set to: " .. _G.MineDelay .. "s", 2)
+    end,
+})
+
+-- Updated Mine Aura toggle
+MineSection:NewToggle({
+    Name = "Mine Aura",
+    CurrentValue = false,
+    Flag = "MineAura",
+    Callback = function(Value)
+        _G.MineAura = Value
+        
+        if Value then
+            spawn(function()
+                MyHub:Notify("Mine Aura", "Activated!", 2)
+                
+                while _G.MineAura do
+                    if player.Character then
+                        local mineRemote = player.Character:FindFirstChild("Mine")
                         
-                        wait(0.0001)
+                        if mineRemote and mineRemote:IsA("RemoteEvent") then
+                            pcall(function()
+                                mineRemote:FireServer("ANTIHACK")
+                            end)
+                        end
                     end
-                end)
-            else
-                MyHub:Notify("Mine Aura", "Deactivated!", 2)
-            end
-        end,
-    })
+                    
+                    wait(_G.MineDelay) -- Uses custom delay
+                end
+            end)
+        else
+            MyHub:Notify("Mine Aura", "Deactivated!", 2)
+        end
+    end,
+})
     
     MineSection:NewButton({
         Name = "Mine Once",
@@ -93,6 +109,86 @@ spawn(function()
             end
         end,
     })
+
+
+_G.ResourceHighlight = false
+
+MineSection:NewToggle({
+    Name = "Highlight Resources",
+    CurrentValue = false,
+    Flag = "ResourceHighlight",
+    Callback = function(Value)
+        _G.ResourceHighlight = Value
+        
+        if Value then
+            MyHub:Notify("Highlight", "Highlighting resources...", 2)
+            
+            -- Highlight existing resources
+            for _, obj in pairs(Workspace:GetDescendants()) do
+                if obj:IsA("Model") then
+                    local name = obj.Name:lower()
+                    
+                    if name:find("gold") or name:find("diamond") or name:find("crystal") then
+                        if not obj:FindFirstChild("ResourceHighlight") then
+                            local highlight = Instance.new("Highlight")
+                            highlight.Name = "ResourceHighlight"
+                            highlight.FillTransparency = 0.5
+                            highlight.OutlineTransparency = 0
+                            
+                            -- Color based on type
+                            if name:find("gold") then
+                                highlight.FillColor = Color3.fromRGB(255, 215, 0)
+                            elseif name:find("diamond") then
+                                highlight.FillColor = Color3.fromRGB(0, 191, 255)
+                            elseif name:find("crystal") then
+                                highlight.FillColor = Color3.fromRGB(255, 0, 255)
+                            end
+                            
+                            highlight.Parent = obj
+                        end
+                    end
+                end
+            end
+            
+            -- Monitor for new resources
+            Workspace.DescendantAdded:Connect(function(obj)
+                if _G.ResourceHighlight and obj:IsA("Model") then
+                    local name = obj.Name:lower()
+                    
+                    if name:find("gold") or name:find("diamond") or name:find("crystal") then
+                        wait(0.1)
+                        
+                        if not obj:FindFirstChild("ResourceHighlight") then
+                            local highlight = Instance.new("Highlight")
+                            highlight.Name = "ResourceHighlight"
+                            highlight.FillTransparency = 0.5
+                            highlight.OutlineTransparency = 0
+                            
+                            if name:find("gold") then
+                                highlight.FillColor = Color3.fromRGB(255, 215, 0)
+                            elseif name:find("diamond") then
+                                highlight.FillColor = Color3.fromRGB(0, 191, 255)
+                            elseif name:find("crystal") then
+                                highlight.FillColor = Color3.fromRGB(255, 0, 255)
+                            end
+                            
+                            highlight.Parent = obj
+                        end
+                    end
+                end
+            end)
+        else
+            -- Remove all highlights
+            for _, obj in pairs(Workspace:GetDescendants()) do
+                if obj.Name == "ResourceHighlight" then
+                    obj:Destroy()
+                end
+            end
+            
+            MyHub:Notify("Highlight", "Removed!", 2)
+        end
+    end,
+})
 
 MineSection:NewButton({
         Name = "get freedom panel",
