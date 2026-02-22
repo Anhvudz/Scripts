@@ -279,6 +279,29 @@ MineSection:NewLabel({
             end
         end,
     })
+
+TargetSection:NewTextBoxButton({
+    Name = "Target by Name",
+    PlaceholderText = "Enter target NPC/player name...",
+    ButtonText = "Set",
+    Flag = "TargetByName",
+    Callback = function(text)
+        local found = false
+        
+        for _, target in pairs(_G.AvailableTargets) do
+            if target.Name:lower():find(text:lower()) then
+                _G.CurrentTarget = target
+                MyHub:Notify("Target", "Selected: " .. target.Name, 2)
+                found = true
+                break
+            end
+        end
+        
+        if not found then
+            MyHub:Notify("Error", "Target '" .. text .. "' not found!", 2)
+        end
+    end,
+})
     
     -- Attack Section
     local AttackSection = CombatTab:NewSection({Name = "⚔️ Attack"})
