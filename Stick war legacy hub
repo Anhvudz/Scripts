@@ -30,7 +30,7 @@ spawn(function()
     
     -- Create Window
     local Window = MyHub:CreateWindow({
-        Name = "Stick War Legacy Hub",
+        Name = "Stick War Legacy Hub LLL",
         LoadingTitle = "Loading Hub...",
         LoadingSubtitle = "Stick War Features"
     })
@@ -92,6 +92,17 @@ spawn(function()
                 end
             end
         end,
+    })
+
+MineSection:NewButton({
+        Name = "get freedom panel",
+        Callback = function()
+            game.ReplicatedStorage:FindFirstChild("FreedomPanel"):FireServer("ANTIHACK")
+        end,
+    })
+
+MineSection:NewLabel({
+        Name = "you can get freedom panel by get 300k+ Diamonds too!"
     })
     
     -- Anti-Cheat Bypass
@@ -324,16 +335,15 @@ spawn(function()
             
             -- Attack all hitboxes
             local count = 0
-            for _, hitbox in pairs(hitboxes:GetDescendants()) do
-                if hitbox:IsA("BasePart") then
+            
                     pcall(function()
                         helmetAttack:FireServer(hitbox)
                     end)
                     count = count + 1
-                end
-            end
+    
             
-            MyHub:Notify("Attack", "Hit " .. count .. " hitboxes on " .. _G.CurrentTarget.Name, 2)
+            
+            MyHub:Notify("Attack", "damage " .. count .. " on " .. _G.CurrentTarget.Name, 2)
         end,
     })
     
@@ -354,13 +364,12 @@ spawn(function()
                         local helmetAttack = ReplicatedStorage:FindFirstChild("HelmetAttack")
                         
                         if helmetAttack then
-                            for _, hitbox in pairs(hitboxes:GetDescendants()) do
-                                if hitbox:IsA("BasePart") then
+                            
                                     pcall(function()
-                                        helmetAttack:FireServer(hitbox)
+                                        helmetAttack:FireServer(hitboxes)
                                     end)
-                                end
-                            end
+                            
+                            
                         end
                     end
                     
