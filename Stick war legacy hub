@@ -456,7 +456,7 @@ TargetSection:NewTextBoxButton({
             local count = 0
             
                     pcall(function()
-                        helmetAttack:FireServer(hitbox)
+                        helmetAttack:FireServer(hitboxes)
                     end)
                     count = count + 1
     
