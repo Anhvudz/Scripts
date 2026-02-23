@@ -257,7 +257,7 @@ MineSection:NewLabel({
     })
     
     -- Anti-Cheat Bypass
-    local BypassSection = BasicTab:NewSection({Name = "🛡️ Bypass"})
+    local BypassSection = BasicTab:NewSection({Name = "🛡️ Bypass (not working rn)"})
     
     _G.BypassAntiCheat = false
     
@@ -474,6 +474,13 @@ TargetSection:NewTextBoxButton({
     
     AttackSection:NewLabel({
         Name = "Stun and Damage: Needs Spearton unit"
+    })
+
+AttackSection:NewButton({
+        Name = "Regen/get back your ahh spear.",
+        Callback = function()
+            game:GetService("Players").LocalPlayer.Character:FindFirstChild("regenspear"):FireServer()
+        end,
     })
     
     AttackSection:NewButton({
