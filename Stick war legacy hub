@@ -42,8 +42,8 @@ spawn(function()
     
     -- ============ BASIC TAB ============
     local BasicTab = Window:NewTab({Name = "Basic"})
-    local MineSection = BasicTab:NewSection({Name = "⛏️ Mining"})
-local panelsection = BasicTab:NewSection({Name = "⭐Panel"})
+    
+local panelsection = BasicTab:NewSection({Name = "⭐Panel, shop"})
 panelsection:NewLabel({
         Name = "you can get freedom panel by get 300k+ Diamonds too!"
     })
@@ -68,9 +68,29 @@ panelsection:NewButton({
         end,
     })
 panelsection:NewButton({
+        Name = "get admin panel (not perm)",
+        Callback = function()
+            game:GetService("Players").LocalPlayer.PlayerGui.game.Panels.AdminPanel.Visible = true
+        end,
+    })
+
+panelsection:NewButton({
         Name = "get admin gui (gui not working or only admin)",
         Callback = function()
             game:GetService("Players").LocalPlayer.PlayerGui.game.AdminGui.Visible = true
+        end,
+    })
+
+panelsection:NewButton({
+        Name = "open shop gui",
+        Callback = function()
+            game:GetService("Players").LocalPlayer.PlayerGui.game.Shop.Visible = true
+        end,
+    })
+panelsection:NewButton({
+        Name = "thournament FUN gui (make use to use it in thournament)",
+        Callback = function()
+            game:GetService("Players").LocalPlayer.PlayerGui.game.ThournamentFUN.Visible = true
         end,
     })
 
@@ -78,7 +98,7 @@ panelsection:NewButton({
 
 
 
-
+local MineSection = BasicTab:NewSection({Name = "⛏️ Mining"})
     -- Mine Aura
     _G.MineAura = false
     
@@ -491,7 +511,7 @@ TargetSection:NewTextBoxButton({
             local count = 0
             
                     pcall(function()
-                        helmetAttack:FireServer(hitboxes)
+                        helmetAttack:FireServer(hitboxes, "\229\141\144\229\141\141StR\208\190NgK\208\149y\208\161\208\190d\208\181\233\190\152~")
                     end)
                     count = count + 1
     
@@ -520,7 +540,7 @@ TargetSection:NewTextBoxButton({
                         if helmetAttack then
                             
                                     pcall(function()
-                                        helmetAttack:FireServer(hitboxes)
+                                        helmetAttack:FireServer(hitboxes, "\229\141\144\229\141\141StR\208\190NgK\208\149y\208\161\208\190d\208\181\233\190\152~")
                                     end)
                             
                             
@@ -544,7 +564,7 @@ TargetSection:NewTextBoxButton({
     })
     
     InfoSection:NewLabel({
-        Name = "Version: 1.0"
+        Name = "Version: 1.5"
     })
     
     InfoSection:NewButton({
