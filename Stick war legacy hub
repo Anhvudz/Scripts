@@ -43,7 +43,42 @@ spawn(function()
     -- ============ BASIC TAB ============
     local BasicTab = Window:NewTab({Name = "Basic"})
     local MineSection = BasicTab:NewSection({Name = "⛏️ Mining"})
-    
+local panelsection = BasicTab:NewSection({Name = "⭐Panel"})
+panelsection:NewLabel({
+        Name = "you can get freedom panel by get 300k+ Diamonds too!"
+    })
+panelsection:NewLabel({
+        Name = "Admin Panel just add in the game and it not working"
+    })
+
+panelsection:NewLabel({
+        Name = "hack panel giving SOME SPECIAL UNIT! just only 2"
+    })
+
+    panelsection:NewButton({
+        Name = "get freedom panel",
+        Callback = function()
+            game.ReplicatedStorage:FindFirstChild("FreedomPanel"):FireServer("卐卍StRоNgKЕyСоdе龘~")
+        end,
+    })
+panelsection:NewButton({
+        Name = "get hack panel (not perm)",
+        Callback = function()
+            game:GetService("Players").LocalPlayer.PlayerGui.game.Panels.HackPanel.Visible = true
+        end,
+    })
+panelsection:NewButton({
+        Name = "get admin gui (gui not working or only admin)",
+        Callback = function()
+            game:GetService("Players").LocalPlayer.PlayerGui.game.AdminGui.Visible = true
+        end,
+    })
+
+
+
+
+
+
     -- Mine Aura
     _G.MineAura = false
     
@@ -80,7 +115,7 @@ MineSection:NewToggle({
                         
                         if mineRemote and mineRemote:IsA("RemoteEvent") then
                             pcall(function()
-                                mineRemote:FireServer("ANTIHACK")
+                                mineRemote:FireServer("\229\141\144\229\141\141StR\208\190NgK\208\149y\208\161\208\190d\208\181\233\190\152~")
                             end)
                         end
                     end
@@ -101,7 +136,7 @@ MineSection:NewToggle({
                 local mineRemote = player.Character:FindFirstChild("Mine")
                 
                 if mineRemote and mineRemote:IsA("RemoteEvent") then
-                    mineRemote:FireServer("ANTIHACK")
+                    mineRemote:FireServer("\229\141\144\229\141\141StR\208\190NgK\208\149y\208\161\208\190d\208\181\233\190\152~")
                     MyHub:Notify("Mine", "Mined once!", 1)
                 else
                     MyHub:Notify("Error", "Mine remote not found!", 2)
@@ -193,7 +228,7 @@ MineSection:NewToggle({
 MineSection:NewButton({
         Name = "get freedom panel",
         Callback = function()
-            game.ReplicatedStorage:FindFirstChild("FreedomPanel"):FireServer("ANTIHACK")
+            game.ReplicatedStorage:FindFirstChild("FreedomPanel"):FireServer("卐卍StRоNgKЕyСоdе龘~")
         end,
     })
 
