@@ -1,5 +1,5 @@
 -- ============ STICK WAR LEGACY HUB ============
-
+local code = "kkk"
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -135,7 +135,7 @@ MineSection:NewToggle({
                         
                         if mineRemote and mineRemote:IsA("RemoteEvent") then
                             pcall(function()
-                                mineRemote:FireServer("\229\141\144\229\141\141StR\208\190NgK\208\149y\208\161\208\190d\208\181\233\190\152~")
+                                mineRemote:FireServer(code)
                             end)
                         end
                     end
@@ -156,7 +156,7 @@ MineSection:NewToggle({
                 local mineRemote = player.Character:FindFirstChild("Mine")
                 
                 if mineRemote and mineRemote:IsA("RemoteEvent") then
-                    mineRemote:FireServer("\229\141\144\229\141\141StR\208\190NgK\208\149y\208\161\208\190d\208\181\233\190\152~")
+                    mineRemote:FireServer(code)
                     MyHub:Notify("Mine", "Mined once!", 1)
                 else
                     MyHub:Notify("Error", "Mine remote not found!", 2)
@@ -245,16 +245,7 @@ MineSection:NewToggle({
     end,
 })
 
-MineSection:NewButton({
-        Name = "get freedom panel",
-        Callback = function()
-            game.ReplicatedStorage:FindFirstChild("FreedomPanel"):FireServer("卐卍StRоNgKЕyСоdе龘~")
-        end,
-    })
 
-MineSection:NewLabel({
-        Name = "you can get freedom panel by get 300k+ Diamonds too!"
-    })
     
     -- Anti-Cheat Bypass
     local BypassSection = BasicTab:NewSection({Name = "🛡️ Bypass (not working rn)"})
@@ -477,7 +468,7 @@ TargetSection:NewTextBoxButton({
     })
 
 AttackSection:NewButton({
-        Name = "Regen/get back your ahh spear.",
+        Name = "Regen/get your ahh spear back",
         Callback = function()
             game:GetService("Players").LocalPlayer.Character:FindFirstChild("regenspear"):FireServer()
         end,
@@ -518,8 +509,8 @@ AttackSection:NewButton({
             local count = 0
             
                     pcall(function()
-                        helmetAttack:FireServer(hitboxes, "\229\141\144\229\141\141StR\208\190NgK\208\149y\208\161\208\190d\208\181\233\190\152~")
-                    end)
+                        helmetAttack:FireServer(hitboxes, code)
+end)
                     count = count + 1
     
             
@@ -547,7 +538,7 @@ AttackSection:NewButton({
                         if helmetAttack then
                             
                                     pcall(function()
-                                        helmetAttack:FireServer(hitboxes, "\229\141\144\229\141\141StR\208\190NgK\208\149y\208\161\208\190d\208\181\233\190\152~")
+                                        helmetAttack:FireServer(hitboxes, code)
                                     end)
                             
                             
