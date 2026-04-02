@@ -40,88 +40,172 @@ spawn(function()
         return
     end
     
-    -- ============ BASIC TAB ============
-    local BasicTab = Window:NewTab({Name = "Basic"})
-    
-local panelsection = BasicTab:NewSection({Name = "⭐Panel, shop"})
-panelsection:NewLabel({
-        Name = "you can get freedom panel by get 300k+ Diamonds too!"
-    })
-panelsection:NewLabel({
-        Name = "Admin Panel just add in the game and it not working"
-    })
+-- ============ BASIC TAB ============
+local BasicTab = Window:NewTab({Name = "Basic"})
+
+local panelsection = BasicTab:NewSection({Name = "⭐ Panel & Shop"})
 
 panelsection:NewLabel({
-        Name = "hack panel giving SOME SPECIAL UNIT! just only 2"
-    })
+    Name = "Get freedom panel by getting 300k+ Diamonds!"
+})
 
-    panelsection:NewButton({
-        Name = "get freedom panel",
-        Callback = function()
+panelsection:NewLabel({
+    Name = "Admin Panel is in game but not working"
+})
+
+panelsection:NewLabel({
+    Name = "Hack panel gives 2 SPECIAL UNITS!"
+})
+
+panelsection:NewButton({
+    Name = "Get Freedom Panel",
+    Callback = function()
+        local success = pcall(function()
             game.ReplicatedStorage:FindFirstChild("FreedomPanel"):FireServer()
-        end,
-    })
-panelsection:NewButton({
-        Name = "get hack panel (not perm)",
-        Callback = function()
-            game:GetService("Players").LocalPlayer.PlayerGui.game.Panels.HackPanel.Visible = true
-        end,
-    })
-panelsection:NewButton({
-        Name = "get admin panel (not perm)",
-        Callback = function()
-            game:GetService("Players").LocalPlayer.PlayerGui.game.Panels.AdminPanel.Visible = true
-        end,
-    })
-panelsection:NewButton({
-        Name = "get Tester panel (not perm)",
-        Callback = function()
-            game:GetService("Players").LocalPlayer.PlayerGui.TesterPanel.TesterPanel.Visible = true
-        end,
-    })
-panelsection:NewButton({
-        Name = "get special panel (not perm)",
-        Callback = function()
-            game:GetService("Players").LocalPlayer.PlayerGui.game.Panels.Special.SpecialPanel.Visible = true
-
-        end,
-    })
+        end)
+        
+        if success then
+            MyHub:Notify("Panel", "Freedom panel activated!", 2)
+        else
+            MyHub:Notify("Error", "Freedom panel not available!", 2)
+        end
+    end,
+})
 
 panelsection:NewButton({
-        Name = "get admin gui (gui not working or only admin)",
-        Callback = function()
-            game:GetService("Players").LocalPlayer.PlayerGui.game.AdminGui.Visible = true
-        end,
-    })
+    Name = "Get Hack Panel (Not Perm)",
+    Callback = function()
+        local success = pcall(function()
+            player.PlayerGui.game.Panels.HackPanel.Visible = true
+        end)
+        
+        if success then
+            MyHub:Notify("Panel", "Hack panel opened!", 2)
+        else
+            MyHub:Notify("Error", "Hack panel not found!", 2)
+        end
+    end,
+})
 
 panelsection:NewButton({
-        Name = "open shop gui",
-        Callback = function()
-            game:GetService("Players").LocalPlayer.PlayerGui.game.Shop.Visible = true
-        end,
-    })
+    Name = "Get Admin Panel (Not Perm)",
+    Callback = function()
+        local success = pcall(function()
+            player.PlayerGui.game.Panels.AdminPanel.Visible = true
+        end)
+        
+        if success then
+            MyHub:Notify("Panel", "Admin panel opened!", 2)
+        else
+            MyHub:Notify("Error", "Admin panel not found!", 2)
+        end
+    end,
+})
 
 panelsection:NewButton({
-        Name = "open Special gui",
-        Callback = function()
-            game:GetService("Players").LocalPlayer.PlayerGui.game.SpecialPanelShop.Visible = true
-
-        end,
-    })
+    Name = "Get Tester Panel (Not Perm)",
+    Callback = function()
+        local success = pcall(function()
+            player.PlayerGui.TesterPanel.TesterPanel.Visible = true
+        end)
+        
+        if success then
+            MyHub:Notify("Panel", "Tester panel opened!", 2)
+        else
+            MyHub:Notify("Error", "Tester panel not found!", 2)
+        end
+    end,
+})
 
 panelsection:NewButton({
-        Name = "open tester gui",
-        Callback = function()
-            game:GetService("Players").LocalPlayer.PlayerGui.TesterPanel.TesterPanelShop.Visible = true
-        end,
-    })
-panelsection:NewButton({
-        Name = "thournament FUN gui (make use to use it in thournament)",
-        Callback = function()
-            game:GetService("Players").LocalPlayer.PlayerGui.game.ThournamentFUN.Visible = true
-        end,
-    })
+    Name = "Get Special Panel (Not Perm)",
+    Callback = function()
+        local success = pcall(function()
+            player.PlayerGui.game.Panels.Special.SpecialPanel.Visible = true
+        end)
+        
+        if success then
+            MyHub:Notify("Panel", "Special panel opened!", 2)
+        else
+            MyHub:Notify("Error", "Special panel not found!", 2)
+        end
+    end,
+})
 
+panelsection:NewButton({
+    Name = "Get Admin GUI (Admin Only)",
+    Callback = function()
+        local success = pcall(function()
+            player.PlayerGui.game.AdminGui.Visible = true
+        end)
+        
+        if success then
+            MyHub:Notify("GUI", "Admin GUI opened!", 2)
+        else
+            MyHub:Notify("Error", "Admin GUI not found!", 2)
+        end
+    end,
+})
+
+panelsection:NewButton({
+    Name = "Open Shop GUI",
+    Callback = function()
+        local success = pcall(function()
+            player.PlayerGui.game.Shop.Visible = true
+        end)
+        
+        if success then
+            MyHub:Notify("Shop", "Opened!", 2)
+        else
+            MyHub:Notify("Error", "Shop not found!", 2)
+        end
+    end,
+})
+
+panelsection:NewButton({
+    Name = "Open Special GUI",
+    Callback = function()
+        local success = pcall(function()
+            player.PlayerGui.game.SpecialPanelShop.Visible = true
+        end)
+        
+        if success then
+            MyHub:Notify("Special", "Opened!", 2)
+        else
+            MyHub:Notify("Error", "Special shop not found!", 2)
+        end
+    end,
+})
+
+panelsection:NewButton({
+    Name = "Open Tester GUI",
+    Callback = function()
+        local success = pcall(function()
+            player.PlayerGui.TesterPanel.TesterPanelShop.Visible = true
+        end)
+        
+        if success then
+            MyHub:Notify("Tester", "Opened!", 2)
+        else
+            MyHub:Notify("Error", "Tester shop not found!", 2)
+        end
+    end,
+})
+
+panelsection:NewButton({
+    Name = "Tournament FUN GUI (Tournament Only)",
+    Callback = function()
+        local success = pcall(function()
+            player.PlayerGui.game.ThournamentFUN.Visible = true
+        end)
+        
+        if success then
+            MyHub:Notify("Tournament", "Opened!", 2)
+        else
+            MyHub:Notify("Error", "Tournament GUI not found!", 2)
+        end
+    end,
+})
 
 
 
