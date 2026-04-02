@@ -1,5 +1,5 @@
 -- ============ STICK WAR LEGACY HUB ============
-local code = "kkk"
+local code = "5bfe186d-87b9-4797-b198-ac1e9ac37a09"
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -58,7 +58,7 @@ panelsection:NewLabel({
     panelsection:NewButton({
         Name = "get freedom panel",
         Callback = function()
-            game.ReplicatedStorage:FindFirstChild("FreedomPanel"):FireServer("卐卍StRоNgKЕyСоdе龘~")
+            game.ReplicatedStorage:FindFirstChild("FreedomPanel"):FireServer()
         end,
     })
 panelsection:NewButton({
@@ -73,6 +73,19 @@ panelsection:NewButton({
             game:GetService("Players").LocalPlayer.PlayerGui.game.Panels.AdminPanel.Visible = true
         end,
     })
+panelsection:NewButton({
+        Name = "get Tester panel (not perm)",
+        Callback = function()
+            game:GetService("Players").LocalPlayer.PlayerGui.TesterPanel.TesterPanel.Visible = true
+        end,
+    })
+panelsection:NewButton({
+        Name = "get special panel (not perm)",
+        Callback = function()
+            game:GetService("Players").LocalPlayer.PlayerGui.game.Panels.Special.SpecialPanel.Visible = true
+
+        end,
+    })
 
 panelsection:NewButton({
         Name = "get admin gui (gui not working or only admin)",
@@ -85,6 +98,21 @@ panelsection:NewButton({
         Name = "open shop gui",
         Callback = function()
             game:GetService("Players").LocalPlayer.PlayerGui.game.Shop.Visible = true
+        end,
+    })
+
+panelsection:NewButton({
+        Name = "open Special gui",
+        Callback = function()
+            game:GetService("Players").LocalPlayer.PlayerGui.game.SpecialPanelShop.Visible = true
+
+        end,
+    })
+
+panelsection:NewButton({
+        Name = "open tester gui",
+        Callback = function()
+            game:GetService("Players").LocalPlayer.PlayerGui.TesterPanel.TesterPanelShop.Visible = true
         end,
     })
 panelsection:NewButton({
