@@ -990,7 +990,7 @@ KillAuraSection:NewSlider({
 })
 
   -- ============ AUTO FARM ============
-local AutoFarmSection = OtherTab:NewSection({Name = "🤖 Auto Farm"})
+local AutoFarmSection = OtherTab:NewSection({Name = "🤖 Auto Farm (updated)"})
 
 -- Services
 local PathfindingService = game:GetService("PathfindingService")
@@ -1618,7 +1618,7 @@ local function teleportTo(target)
     local hrp = target:FindFirstChild("HumanoidRootPart")
     if not hrp then return false end
     
-    local pos = hrp.CFrame.Position + (hrp.CFrame.LookVector * -5)
+    local pos = hrp.CFrame.Position + (hrp.CFrame.LookVector * 5)
     player.Character.HumanoidRootPart.CFrame = CFrame.new(pos, hrp.Position)
     
     return true
@@ -1694,7 +1694,7 @@ SoulSection:NewToggle({
                             
                             -- Teleport in front of target
                             teleportTo(target)
-                            wait(0.2)
+                            wait(0.15)
                             
                             -- Activate tool
                             local tool = ch:FindFirstChildOfClass("Tool")
@@ -1717,7 +1717,7 @@ SoulSection:NewToggle({
                                 print("👻 Attacked soul:", target.Name, "- Blacklisted for", BLACKLIST_TIME, "s")
                             end
                             
-                            wait(0.2)
+                            wait(2.25)
                         end
                     else
                         -- No targets found
