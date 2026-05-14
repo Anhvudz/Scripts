@@ -1657,9 +1657,10 @@ SoulSection:NewToggle({
                     local ch = player.Character
                     
                     -- Check if dead or no character
-                    if not ch or not ch:FindFirstChild("Humanoid") or ch.Humanoid.Health <= 0 then
+                    if not ch or not ch:FindFirstChild("Humanoid") or ch.Humanoid.Health <= 0 or not ch:FindFirstChildOfClass("Tool") or not player:FindFirstChildOfClass("Tool") then
                         MyHub:Notify("Soul Farm", "Died! Returning to arena...", 2)
-                        wait(3)
+ch.Humanoid.Health = 0
+                        wait(5)
                         
                         -- Go back to arena
                         goToArena()
@@ -1694,7 +1695,7 @@ SoulSection:NewToggle({
                             
                             -- Teleport in front of target
                             teleportTo(target)
-                            wait(0.15)
+                            wait(0.1)
                             
                             -- Activate tool
                             local tool = ch:FindFirstChildOfClass("Tool")
@@ -1717,7 +1718,7 @@ SoulSection:NewToggle({
                                 print("👻 Attacked soul:", target.Name, "- Blacklisted for", BLACKLIST_TIME, "s")
                             end
                             
-                            wait(2.25)
+                            wait(3.5)
                         end
                     else
                         -- No targets found
