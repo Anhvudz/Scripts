@@ -1519,6 +1519,298 @@ InfoSection:NewButton({
     end,
 })
 
+-- ============ SOUL FARM ============
+local SoulFarmTab = Window:NewTab({Name = "event..?"})
+local SoulSection = SoulFarmTab:NewSection({Name = "👻 Soul Farm"})
+
+-- State
+_G.SoulFarmRunning = false
+_G.SoulBlacklist = {} -- Blacklisted souls with timestamps
+
+-- Config
+local BLACKLIST_TIME = 5 -- Seconds to blacklist a soul
+local ATTACK_RANGE = 7
+
+-- Function to check if soul is blacklisted
+local function isBlacklisted(soul)
+    if _G.SoulBlacklist[soul] then
+        if tick() - _G.SoulBlacklist[soul] < BLACKLIST_TIME then
+            return true -- Still blacklisted
+        else
+            _G.SoulBlacklist[soul] = nil -- Remove from blacklist
+            return false
+        end
+    end
+    return false
+end
+
+-- Function to find soul
+local function findSoul()
+    local map = workspace:FindFirstChild("Map")
+    if not map then return nil end
+    
+    -- Search through all 4 Souls folders
+    local soulsFolder = map:FindFirstChild("Souls")
+    if soulsFolder then
+        for _, folder in pairs(soulsFolder:GetChildren()) do
+            if folder.Name == "Soul" then
+                for _, soul in pairs(folder:GetChildren()) do
+                    if soul:IsA("Model") and soul:FindFirstChild("Humanoid") and 
+                       soul.Humanoid.Health > 0 and not isBlacklisted(soul) then
+                        local hrp = soul:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            return soul, "Soul"
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return nil
+end
+
+-- Function to find dummy
+local function findDummy()
+    local map = workspace:FindFirstChild("Map")
+    if not map then return nil end
+    
+    local dummyFolder = map:FindFirstChild("Dummy")
+    if not dummyFolder then return nil end
+    
+    -- Check Test Dummy and Test Dummy2
+    local dummyNames = {"Test Dummy", "Test Dummy2"}
+    
+    for _, name in pairs(dummyNames) do
+        local dummy = dummyFolder:FindFirstChild(name)
+        if dummy and dummy:IsA("Model") and dummy:FindFirstChild("Humanoid") and
+           dummy.Humanoid.Health > 0 then
+            return dummy, "Dummy"
+        end
+    end
+    
+    return nil
+end
+
+-- Function to equip tool
+local function equipTool()
+    if not player.Character then return false end
+    
+    local tool = player.Character:FindFirstChildOfClass("Tool")
+    if tool then return true end
+    
+    tool = player.Backpack:FindFirstChildOfClass("Tool")
+    if tool then
+        player.Character.Humanoid:EquipTool(tool)
+        wait(0.1)
+        return true
+    end
+    
+    return false
+end
+
+-- Function to teleport in front of target
+local function teleportTo(target)
+    if not target or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    
+    local hrp = target:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    
+    local pos = hrp.CFrame.Position + (hrp.CFrame.LookVector * -5)
+    player.Character.HumanoidRootPart.CFrame = CFrame.new(pos, hrp.Position)
+    
+    return true
+end
+
+-- Function to go back to arena
+local function goToArena()
+    -- Find portal
+    local portal = workspace:FindFirstChild("Lobby")
+    if portal then
+        portal = portal:FindFirstChild("Portal")
+        if portal then
+            portal = portal:FindFirstChild("Part")
+            if portal and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                player.Character.HumanoidRootPart.CFrame = portal.CFrame
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Main toggle
+SoulSection:NewToggle({
+    Name = "Soul Farm",
+    CurrentValue = false,
+    Flag = "SoulFarm",
+    Callback = function(Value)
+        _G.SoulFarmRunning = Value
+        
+        if Value then
+            spawn(function()
+                MyHub:Notify("Soul Farm", "Starting!", 2)
+                
+                while _G.SoulFarmRunning do
+                    local ch = player.Character
+                    
+                    -- Check if dead or no character
+                    if not ch or not ch:FindFirstChild("Humanoid") or ch.Humanoid.Health <= 0 then
+                        MyHub:Notify("Soul Farm", "Died! Returning to arena...", 2)
+                        wait(3)
+                        
+                        -- Go back to arena
+                        goToArena()
+                        wait(2)
+                        
+                        -- Equip tool
+                        equipTool()
+                        wait(1)
+                        
+                        continue
+                    end
+                    
+                    -- Equip tool
+                    if not equipTool() then
+                        wait(0.5)
+                        continue
+                    end
+                    
+                    -- Try to find soul first
+                    local target, targetType = findSoul()
+                    
+                    -- If no soul, find dummy
+                    if not target then
+                        target, targetType = findDummy()
+                    end
+                    
+                    if target then
+                        local hrp = target:FindFirstChild("HumanoidRootPart")
+                        
+                        if hrp then
+                            local dist = (hrp.Position - ch.HumanoidRootPart.Position).Magnitude
+                            
+                            -- Teleport in front of target
+                            teleportTo(target)
+                            wait(0.2)
+                            
+                            -- Activate tool
+                            local tool = ch:FindFirstChildOfClass("Tool")
+                            if tool then
+                                tool:Activate()
+                            end
+                            
+                            -- Fire damage remote
+                            local effects = ch:FindFirstChild("Effects")
+                            local remote = effects and effects:FindFirstChild("DMF")
+                            if remote then
+                                pcall(function()
+                                    remote:FireServer(hrp, damageAmount or 100)
+                                end)
+                            end
+                            
+                            -- Blacklist soul after attacking
+                            if targetType == "Soul" then
+                                _G.SoulBlacklist[target] = tick()
+                                print("👻 Attacked soul:", target.Name, "- Blacklisted for", BLACKLIST_TIME, "s")
+                            end
+                            
+                            wait(0.2)
+                        end
+                    else
+                        -- No targets found
+                        wait(1)
+                    end
+                    
+                    wait(0.1)
+                end
+                
+                MyHub:Notify("Soul Farm", "Stopped!", 2)
+            end)
+        end
+    end,
+})
+
+-- Blacklist timer slider
+SoulSection:NewSlider({
+    Name = "Blacklist Time (seconds)",
+    Range = {1, 30},
+    Increment = 1,
+    CurrentValue = 5,
+    Flag = "BlacklistTime",
+    Callback = function(Value)
+        BLACKLIST_TIME = Value
+        MyHub:Notify("Blacklist", "Set to: " .. Value .. "s", 2)
+    end,
+})
+
+-- Manual actions
+local ActionsSection = SoulFarmTab:NewSection({Name = "🎯 Manual Actions"})
+
+ActionsSection:NewButton({
+    Name = "Clear Blacklist",
+    Callback = function()
+        _G.SoulBlacklist = {}
+        MyHub:Notify("Blacklist", "Cleared!", 2)
+    end,
+})
+
+ActionsSection:NewButton({
+    Name = "Find Soul Now",
+    Callback = function()
+        local soul, type = findSoul()
+        if soul then
+            teleportTo(soul)
+            MyHub:Notify("Soul", "Found and teleported to: " .. soul.Name, 2)
+        else
+            local dummy, dType = findDummy()
+            if dummy then
+                teleportTo(dummy)
+                MyHub:Notify("Dummy", "No soul found, teleported to dummy!", 2)
+            else
+                MyHub:Notify("Error", "No targets found!", 2)
+            end
+        end
+    end,
+})
+
+ActionsSection:NewButton({
+    Name = "Go to Arena",
+    Callback = function()
+        local success = goToArena()
+        if success then
+            MyHub:Notify("Arena", "Teleported!", 2)
+        else
+            MyHub:Notify("Error", "Portal not found!", 2)
+        end
+    end,
+})
+
+-- Info
+local InfoSection = SoulFarmTab:NewSection({Name = "ℹ️ How It Works"})
+
+InfoSection:NewLabel({
+    Name = "1. Find Soul in Map.Souls.Soul"
+})
+
+InfoSection:NewLabel({
+    Name = "2. Teleport in front and attack"
+})
+
+InfoSection:NewLabel({
+    Name = "3. Blacklist for 5s then move on"
+})
+
+InfoSection:NewLabel({
+    Name = "4. If no soul, farm Test Dummy instead"
+})
+
+InfoSection:NewLabel({
+    Name = "5. If died, return to arena and equip tool"
+})
+
 
 -- ============ AUTO FARM V2 - HEALTH FLICKER ============
 -- Paste this AFTER the OtherTab section in your main script
