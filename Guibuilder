@@ -1,7 +1,3 @@
--- Check for table that is shared between executions.
-if not shared then
-	return warn("No shared, no script.")
-end
 
 -- Initialize Luraph globals if they do not exist.
 loadstring("getfenv().LPH_NO_VIRTUALIZE = function(...) return ... end")()
