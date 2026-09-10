@@ -979,22 +979,37 @@ function MyHub:CreateWindow(config)
 		end
 
 		function TabApi:NewSection(config)
-			local sectionName = tostring(config.Name or "Section")
-			local SectionApi  = {}
+    local sectionName = tostring(config.Name or "Section")
+    local SectionApi  = {}
 
-			-- Section label with divider lines.
-			local sl = Instance.new("TextLabel")
-			sl.Size             = UDim2.new(1, -20, 0, 14)
-			sl.Position         = UDim2.new(0, 10, 0, tab.yPos + 6)
-			sl.Text             = sectionName:upper()
-			sl.TextColor3       = currentTheme.SectionLabel
-			sl.BackgroundTransparency = 1
-			sl.Font             = Enum.Font.SourceSansBold
-			sl.TextSize         = 10
-			sl.LetterSpacing    = 3
-			sl.TextXAlignment   = Enum.TextXAlignment.Left
-			sl.Parent           = tab.content
-			tab.yPos            = tab.yPos + 26
+    -- Section label.
+    local slFrame = Instance.new("Frame")
+    slFrame.Size             = UDim2.new(1, -20, 0, 18)
+    slFrame.Position         = UDim2.new(0, 10, 0, tab.yPos + 5)
+    slFrame.BackgroundTransparency = 1
+    slFrame.Parent           = tab.content
+
+    -- Đường kẻ trái (thay thế LetterSpacing bằng accent line).
+    local slLine = Instance.new("Frame")
+    slLine.Size             = UDim2.new(0, 2, 0.7, 0)
+    slLine.Position         = UDim2.new(0, 0, 0.15, 0)
+    slLine.BackgroundColor3 = currentTheme.AccentColor
+    slLine.BorderSizePixel  = 0
+    slLine.Parent           = slFrame
+    corner(slLine, 999)
+
+    local sl = Instance.new("TextLabel")
+    sl.Size             = UDim2.new(1, -10, 1, 0)
+    sl.Position         = UDim2.new(0, 8, 0, 0)
+    sl.Text             = sectionName:upper()
+    sl.TextColor3       = currentTheme.SectionLabel
+    sl.BackgroundTransparency = 1
+    sl.Font             = Enum.Font.SourceSansBold
+    sl.TextSize         = 10
+    sl.TextXAlignment   = Enum.TextXAlignment.Left
+    sl.Parent           = slFrame
+
+    tab.yPos = tab.yPos + 28
 
 			-- Creates a standard background frame element.
 			local function makeEl(h)
