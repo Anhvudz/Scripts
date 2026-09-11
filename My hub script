@@ -979,37 +979,22 @@ function MyHub:CreateWindow(config)
 		end
 
 		function TabApi:NewSection(config)
-    local sectionName = tostring(config.Name or "Section")
-    local SectionApi  = {}
+			local sectionName = tostring(config.Name or "Section")
+			local SectionApi  = {}
 
-    -- Section label.
-    local slFrame = Instance.new("Frame")
-    slFrame.Size             = UDim2.new(1, -20, 0, 18)
-    slFrame.Position         = UDim2.new(0, 10, 0, tab.yPos + 5)
-    slFrame.BackgroundTransparency = 1
-    slFrame.Parent           = tab.content
-
-    -- Đường kẻ trái (thay thế LetterSpacing bằng accent line).
-    local slLine = Instance.new("Frame")
-    slLine.Size             = UDim2.new(0, 2, 0.7, 0)
-    slLine.Position         = UDim2.new(0, 0, 0.15, 0)
-    slLine.BackgroundColor3 = currentTheme.AccentColor
-    slLine.BorderSizePixel  = 0
-    slLine.Parent           = slFrame
-    corner(slLine, 999)
-
-    local sl = Instance.new("TextLabel")
-    sl.Size             = UDim2.new(1, -10, 1, 0)
-    sl.Position         = UDim2.new(0, 8, 0, 0)
-    sl.Text             = sectionName:upper()
-    sl.TextColor3       = currentTheme.SectionLabel
-    sl.BackgroundTransparency = 1
-    sl.Font             = Enum.Font.SourceSansBold
-    sl.TextSize         = 10
-    sl.TextXAlignment   = Enum.TextXAlignment.Left
-    sl.Parent           = slFrame
-
-    tab.yPos = tab.yPos + 28
+			-- Section label with divider lines.
+			local sl = Instance.new("TextLabel")
+			sl.Size             = UDim2.new(1, -20, 0, 14)
+			sl.Position         = UDim2.new(0, 10, 0, tab.yPos + 6)
+			sl.Text             = sectionName:upper()
+			sl.TextColor3       = currentTheme.SectionLabel
+			sl.BackgroundTransparency = 1
+			sl.Font             = Enum.Font.SourceSansBold
+			sl.TextSize         = 10
+			sl.LetterSpacing    = 3
+			sl.TextXAlignment   = Enum.TextXAlignment.Left
+			sl.Parent           = tab.content
+			tab.yPos            = tab.yPos + 26
 
 			-- Creates a standard background frame element.
 			local function makeEl(h)
@@ -1428,8 +1413,9 @@ function MyHub:CreateWindow(config)
 
 						local dragging = false; local mc2, rc2
 
-						local function upd(input)
-							local rel = math.clamp((input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+						-- Dùng GetMouseLocation thay vì input.Position để đồng nhất.
+						local function upd(mouseX)
+							local rel = math.clamp((mouseX - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
 							local val = math.floor(rel * 255); setV(val)
 							fill2.Size = UDim2.new(rel, 0, 1, 0); knob2.Position = UDim2.new(rel, -7, 0.5, -7)
 							slbl.Text = ch .. ":  " .. val; valPart.Text = tostring(val); onUpdate()
@@ -1441,18 +1427,28 @@ function MyHub:CreateWindow(config)
 							if rc2 then rc2:Disconnect(); rc2 = nil end
 						end
 
-						local function startD(input)
-							if dragging then return end; dragging = true; upd(input)
+						local function startD()
+							if dragging then return end; dragging = true
+							upd(userInputService:GetMouseLocation().X)
 							mc2 = userInputService.InputChanged:Connect(function(ic)
-								if dragging and ic.UserInputType == Enum.UserInputType.MouseMovement then upd(ic) end
+								if dragging and ic.UserInputType == Enum.UserInputType.MouseMovement then
+									upd(userInputService:GetMouseLocation().X)
+								end
 							end)
 							rc2 = userInputService.InputEnded:Connect(function(ie)
 								if ie.UserInputType == Enum.UserInputType.MouseButton1 then stopD() end
 							end)
 						end
 
-						track.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then startD(i) end end)
-						knob2.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then startD(i) end end)
+						-- Frame không nhận InputBegan đáng tin cậy → dùng TextButton trong suốt.
+						local hitBtn = Instance.new("TextButton")
+						hitBtn.Size               = UDim2.new(1, 0, 0, 24)
+						hitBtn.Position           = UDim2.new(0, 0, 0.5, -12)
+						hitBtn.BackgroundTransparency = 1
+						hitBtn.Text               = ""
+						hitBtn.ZIndex             = knob2.ZIndex + 2
+						hitBtn.Parent             = track
+						hitBtn.MouseButton1Down:Connect(startD)
 					end
 
 					makeChannelSlider("R", 30, function() return r end, function(v) r = v end, Color3.fromRGB(205, 52, 52))
