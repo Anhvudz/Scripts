@@ -991,7 +991,7 @@ function MyHub:CreateWindow(config)
 			sl.BackgroundTransparency = 1
 			sl.Font             = Enum.Font.SourceSansBold
 			sl.TextSize         = 10
-			sl.LetterSpacing    = 3
+			
 			sl.TextXAlignment   = Enum.TextXAlignment.Left
 			sl.Parent           = tab.content
 			tab.yPos            = tab.yPos + 26
