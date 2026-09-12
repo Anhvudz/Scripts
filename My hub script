@@ -58,6 +58,12 @@ end
 -- MyHub module.
 local MyHub = {}
 
+-- Settings — thay đổi tại runtime để ảnh hưởng toàn bộ MyHub.
+MyHub.Settings = {
+	oldAnimation = false,  -- animation đơn giản hơn (Linear, nhanh hơn)
+	oldNotify    = false,  -- notify kiểu cũ (giữa trên màn hình)
+}
+
 -- Themes.
 local Themes = {
 	Default = {
@@ -156,6 +162,14 @@ clickSound.SoundId = "rbxassetid://156286438"
 clickSound.Volume  = 0.45
 clickSound.Parent  = soundService
 
+-- Animation helper — dùng thay cho TweenInfo.new() trực tiếp.
+local function getTI(t, style, dir)
+	if MyHub.Settings.oldAnimation then
+		return TweenInfo.new(math.max(t * 0.5, 0.05), Enum.EasingStyle.Linear)
+	end
+	return TweenInfo.new(t, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out)
+end
+
 -- Centralized __namecall dispatcher.
 local namecallHandlers = {}
 local originalNamecall = nil
@@ -178,6 +192,14 @@ local function registerNamecallHandler(fn)
 	table.insert(namecallHandlers, h)
 	installNamecallHook()
 	return h
+end
+
+-- Đổi click sound.
+function MyHub:SetClickSound(soundId, volume)
+	if soundId then
+		clickSound.SoundId = tostring(soundId):match("^%d+$") and ("rbxassetid://" .. soundId) or tostring(soundId)
+	end
+	if volume then clickSound.Volume = math.clamp(volume / 100, 0, 1) end
 end
 
 -- Notification stack + deduplication.
@@ -204,6 +226,28 @@ function MyHub:Notify(title, text, duration, imageId)
 
 	table.insert(MyHub.NotificationHistory, 1, { title = title, text = text, time = os.date("%H:%M:%S") })
 	if #MyHub.NotificationHistory > 50 then table.remove(MyHub.NotificationHistory) end
+
+	-- Old notify style: giữa trên, không stack.
+	if MyHub.Settings.oldNotify then
+		local og = Instance.new("ScreenGui"); og.Name="MyHubOldNotif"; og.ResetOnSpawn=false; og.Parent=exploitGui
+		local onf = Instance.new("Frame"); onf.Size=UDim2.new(0,260,0,72); onf.Position=UDim2.new(0.5,-130,0,-80)
+		onf.BackgroundColor3=currentTheme.NotificationBg; onf.BorderSizePixel=0; onf.Parent=og
+		local onfc=Instance.new("UICorner"); onfc.CornerRadius=UDim.new(0,8); onfc.Parent=onf
+		local ons=Instance.new("UIStroke"); ons.Color=currentTheme.Divider; ons.Thickness=1; ons.Parent=onf
+		local otl=Instance.new("TextLabel"); otl.Size=UDim2.new(1,-16,0.45,0); otl.Position=UDim2.new(0,8,0,4)
+		otl.Text=title; otl.TextColor3=currentTheme.TextColor; otl.BackgroundTransparency=1
+		otl.Font=Enum.Font.SourceSansBold; otl.TextSize=14; otl.TextXAlignment=Enum.TextXAlignment.Left; otl.Parent=onf
+		local obl=Instance.new("TextLabel"); obl.Size=UDim2.new(1,-16,0.55,-6); obl.Position=UDim2.new(0,8,0.45,0)
+		obl.Text=text; obl.TextColor3=currentTheme.SubTextColor; obl.BackgroundTransparency=1
+		obl.Font=Enum.Font.SourceSans; obl.TextSize=12; obl.TextWrapped=true; obl.TextXAlignment=Enum.TextXAlignment.Left; obl.Parent=onf
+		tweenService:Create(onf, getTI(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position=UDim2.new(0.5,-130,0,8)}):Play()
+		task.spawn(function()
+			task.wait(duration or 5)
+			tweenService:Create(onf, getTI(0.3), {Position=UDim2.new(0.5,-130,0,-80)}):Play()
+			task.wait(0.35); og:Destroy()
+		end)
+		return
+	end
 
 	-- Update existing same-title notification.
 	local ex = activeNotifsByTitle[title]
@@ -503,6 +547,7 @@ local function createNestedContainer(parentElement)
 	expandBtn.Font               = Enum.Font.SourceSansBold
 	expandBtn.TextSize           = 12
 	expandBtn.ZIndex             = parentElement.ZIndex + 1
+	expandBtn.Visible            = false  -- chỉ hiện khi có nested content
 	expandBtn.Parent             = parentElement
 
 	local nf = Instance.new("Frame")
@@ -541,7 +586,11 @@ local function createNestedContainer(parentElement)
 		end
 	end)
 
-	local function addEl(h) NA.yPos = NA.yPos + h; sf.CanvasSize = UDim2.new(0, 0, 0, NA.yPos) end
+	local function addEl(h)
+		NA.yPos = NA.yPos + h
+		sf.CanvasSize = UDim2.new(0, 0, 0, NA.yPos)
+		expandBtn.Visible = true  -- hiện mũi tên khi có content
+	end
 
 	function NA:NewButton(cfg)
 		local btn = Instance.new("TextButton")
@@ -980,21 +1029,36 @@ function MyHub:CreateWindow(config)
 
 		function TabApi:NewSection(config)
 			local sectionName = tostring(config.Name or "Section")
+			local sectionImage = config.Image  -- optional: rbxassetid hoặc file path
 			local SectionApi  = {}
 
-			-- Section label with divider lines.
+			-- Wrapper frame cho section label (+ optional background image).
+			local slFrame = Instance.new("Frame")
+			slFrame.Size             = UDim2.new(1, -20, 0, 20)
+			slFrame.Position         = UDim2.new(0, 10, 0, tab.yPos + 4)
+			slFrame.BackgroundTransparency = 1
+			slFrame.Parent           = tab.content
+
+			-- Accent line bên trái.
+			local slAccent = Instance.new("Frame")
+			slAccent.Size            = UDim2.new(0, 2, 0.6, 0)
+			slAccent.Position        = UDim2.new(0, 0, 0.2, 0)
+			slAccent.BackgroundColor3 = currentTheme.AccentColor
+			slAccent.BorderSizePixel = 0
+			slAccent.Parent          = slFrame
+			corner(slAccent, 999)
+
 			local sl = Instance.new("TextLabel")
-			sl.Size             = UDim2.new(1, -20, 0, 14)
-			sl.Position         = UDim2.new(0, 10, 0, tab.yPos + 6)
+			sl.Size             = UDim2.new(1, -10, 1, 0)
+			sl.Position         = UDim2.new(0, 8, 0, 0)
 			sl.Text             = sectionName:upper()
 			sl.TextColor3       = currentTheme.SectionLabel
 			sl.BackgroundTransparency = 1
 			sl.Font             = Enum.Font.SourceSansBold
 			sl.TextSize         = 10
-			
 			sl.TextXAlignment   = Enum.TextXAlignment.Left
-			sl.Parent           = tab.content
-			tab.yPos            = tab.yPos + 26
+			sl.Parent           = slFrame
+			tab.yPos            = tab.yPos + 28
 
 			-- Creates a standard background frame element.
 			local function makeEl(h)
@@ -1003,8 +1067,28 @@ function MyHub:CreateWindow(config)
 				f.Position         = UDim2.new(0, 10, 0, tab.yPos)
 				f.BackgroundColor3 = currentTheme.ElementBackground
 				f.BorderSizePixel  = 0
+				f.ClipsDescendants = false
 				f.Parent           = tab.content
 				corner(f, 5)
+
+				-- Optional section background image (60% transparent).
+				if sectionImage then
+					local img = Instance.new("ImageLabel")
+					img.Size               = UDim2.new(1, 0, 1, 0)
+					img.BackgroundTransparency = 1
+					img.ImageTransparency  = 0.6
+					img.ScaleType          = Enum.ScaleType.Crop
+					img.ZIndex             = f.ZIndex
+					img.Parent             = f
+					corner(img, 5)
+					if typeof(getcustomasset) == "function" and typeof(isfile) == "function" and isfile(sectionImage) then
+						local ok, asset = pcall(getcustomasset, sectionImage)
+						if ok then img.Image = asset end
+					else
+						img.Image = tostring(sectionImage):match("^%d+$") and ("rbxassetid://" .. sectionImage) or tostring(sectionImage)
+					end
+				end
+
 				tab.yPos = tab.yPos + h + 5
 				updateCanvas()
 				return f
@@ -1136,8 +1220,8 @@ function MyHub:CreateWindow(config)
 
 				local arrowBtn = Instance.new("TextButton")
 				arrowBtn.Size = UDim2.new(0.22, 0, 1, 0); arrowBtn.Position = UDim2.new(0.78, 0, 0, 0)
-				arrowBtn.Text = "▾"; arrowBtn.BackgroundTransparency = 1; arrowBtn.TextColor3 = currentTheme.AccentColor
-				arrowBtn.Font = Enum.Font.SourceSansBold; arrowBtn.TextSize = 16; arrowBtn.Parent = f
+				arrowBtn.Text = "v"; arrowBtn.BackgroundTransparency = 1; arrowBtn.TextColor3 = currentTheme.AccentColor
+				arrowBtn.Font = Enum.Font.SourceSansBold; arrowBtn.TextSize = 14; arrowBtn.Parent = f
 
 				local ITEM_H = 28
 				local listH  = math.min(#options * ITEM_H, 160)
@@ -1178,7 +1262,7 @@ function MyHub:CreateWindow(config)
 
 				local open = false
 				arrowBtn.MouseButton1Click:Connect(function()
-					open = not open; dropList.Visible = open; arrowBtn.Text = open and "▴" or "▾"
+					open = not open; dropList.Visible = open; arrowBtn.Text = open and "^" or "v"
 				end)
 
 				return f
@@ -1341,153 +1425,246 @@ function MyHub:CreateWindow(config)
 				local f = makeEl(33)
 
 				local lbl = Instance.new("TextLabel")
-				lbl.Size = UDim2.new(0.68, 0, 1, 0); lbl.Position = UDim2.new(0, 12, 0, 0)
-				lbl.Text = colorName; lbl.TextColor3 = currentTheme.TextColor; lbl.BackgroundTransparency = 1
-				lbl.Font = Enum.Font.SourceSans; lbl.TextSize = 14; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = f
+				lbl.Size=UDim2.new(0.62,0,1,0); lbl.Position=UDim2.new(0,12,0,0)
+				lbl.Text=colorName; lbl.TextColor3=currentTheme.TextColor; lbl.BackgroundTransparency=1
+				lbl.Font=Enum.Font.SourceSans; lbl.TextSize=14; lbl.TextXAlignment=Enum.TextXAlignment.Left; lbl.Parent=f
 
+				-- Swatch preview.
 				local preview = Instance.new("Frame")
-				preview.Size = UDim2.new(0, 52, 0, 22); preview.Position = UDim2.new(1, -64, 0.5, -11)
-				preview.BackgroundColor3 = default; preview.BorderSizePixel = 0; preview.Parent = f
-				corner(preview, 4); stroke(preview, currentTheme.Divider, 1)
+				preview.Size=UDim2.new(0,52,0,22); preview.Position=UDim2.new(1,-64,0.5,-11)
+				preview.BackgroundColor3=default; preview.BorderSizePixel=0; preview.Parent=f
+				corner(preview,4); stroke(preview,currentTheme.Divider,1)
 
-				local colorBtn = Instance.new("TextButton")
-				colorBtn.Size = UDim2.new(1, 0, 1, 0); colorBtn.BackgroundTransparency = 1; colorBtn.Text = ""; colorBtn.Parent = preview
+				-- Hex label bên cạnh swatch.
+				local hexLbl = Instance.new("TextLabel")
+				hexLbl.Size=UDim2.new(0,58,1,0); hexLbl.Position=UDim2.new(1,-122,0,0)
+				hexLbl.Text=string.format("#%02X%02X%02X",math.floor(default.R*255),math.floor(default.G*255),math.floor(default.B*255))
+				hexLbl.TextColor3=currentTheme.SubTextColor; hexLbl.BackgroundTransparency=1
+				hexLbl.Font=Enum.Font.Code; hexLbl.TextSize=11; hexLbl.TextXAlignment=Enum.TextXAlignment.Right; hexLbl.Parent=f
 
-				local pickerOpen = false
+				local openBtn=Instance.new("TextButton")
+				openBtn.Size=UDim2.new(1,0,1,0); openBtn.BackgroundTransparency=1; openBtn.Text=""; openBtn.Parent=preview
 
-				colorBtn.MouseButton1Click:Connect(function()
+				local pickerOpen=false
+
+				openBtn.MouseButton1Click:Connect(function()
 					if pickerOpen then return end
-					pickerOpen = true
+					pickerOpen=true
 
-					local picker = Instance.new("Frame")
-					picker.Size = UDim2.new(0, 215, 0, 208); picker.Position = UDim2.new(0, 0, 1, 4)
-					picker.BackgroundColor3 = currentTheme.Background; picker.BorderSizePixel = 0; picker.ZIndex = 60; picker.Parent = f
-					corner(picker, 7); stroke(picker, currentTheme.Divider, 1)
+					-- Popup như riêng biệt — KHÔNG parented vào f (tránh clip).
+					local pgui=Instance.new("ScreenGui")
+					pgui.Name="PotassiumCP_"..colorName; pgui.ResetOnSpawn=false
+					pgui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; pgui.Parent=exploitGui
 
-					local pkTitle = Instance.new("TextLabel")
-					pkTitle.Size = UDim2.new(1, 0, 0, 26); pkTitle.Position = UDim2.new(0, 0, 0, 0)
-					pkTitle.Text = "🎨  " .. colorName; pkTitle.TextColor3 = currentTheme.TextColor
-					pkTitle.BackgroundTransparency = 1; pkTitle.Font = Enum.Font.SourceSansBold; pkTitle.TextSize = 13
-					pkTitle.ZIndex = 61; pkTitle.Parent = picker
+					local PW,PH=430,410
 
-					local r = math.floor(default.R * 255)
-					local g = math.floor(default.G * 255)
-					local b = math.floor(default.B * 255)
+					local pwin=Instance.new("Frame")
+					pwin.AnchorPoint=Vector2.new(0.5,0.5); pwin.Size=UDim2.new(0,0,0,0)
+					pwin.Position=UDim2.new(0.5,0,0.5,0); pwin.BackgroundColor3=currentTheme.Background
+					pwin.BorderSizePixel=0; pwin.Parent=pgui
+					corner(pwin,8); stroke(pwin,currentTheme.Divider,1)
 
-					local function onUpdate()
-						local nc = Color3.fromRGB(r, g, b); preview.BackgroundColor3 = nc; pcall(callback, nc)
-						if configKey then
-							if not configData.colors then configData.colors = {} end
-							configData.colors[configKey] = { R = r, G = g, B = b }; safeWriteFile(configFile, configData)
-						end
-					end
+					local pShadow=Instance.new("ImageLabel"); pShadow.Size=UDim2.new(1,48,1,48); pShadow.Position=UDim2.new(0,-24,0,-24)
+					pShadow.BackgroundTransparency=1; pShadow.Image="rbxassetid://1316045217"
+					pShadow.ImageColor3=Color3.new(0,0,0); pShadow.ImageTransparency=0.52
+					pShadow.ScaleType=Enum.ScaleType.Slice; pShadow.SliceCenter=Rect.new(10,10,118,118)
+					pShadow.ZIndex=pwin.ZIndex-1; pShadow.Parent=pwin
 
-					-- Fixed color channel slider.
-					local function makeChannelSlider(ch, yOff, getV, setV, fillColor)
-						local slbl = Instance.new("TextLabel")
-						slbl.Size = UDim2.new(0.6, 0, 0, 16); slbl.Position = UDim2.new(0, 8, 0, yOff)
-						slbl.Text = ch .. ":  " .. getV(); slbl.TextColor3 = currentTheme.TextColor
-						slbl.BackgroundTransparency = 1; slbl.Font = Enum.Font.SourceSans; slbl.TextSize = 12
-						slbl.TextXAlignment = Enum.TextXAlignment.Left; slbl.ZIndex = 61; slbl.Parent = picker
+					-- Title bar + drag.
+					local ptb=Instance.new("Frame"); ptb.Size=UDim2.new(1,0,0,34)
+					ptb.BackgroundColor3=currentTheme.Topbar; ptb.BorderSizePixel=0; ptb.Parent=pwin; corner(ptb,8)
+					local ptbFix=Instance.new("Frame"); ptbFix.Size=UDim2.new(1,0,0,8); ptbFix.Position=UDim2.new(0,0,1,-8)
+					ptbFix.BackgroundColor3=currentTheme.Topbar; ptbFix.BorderSizePixel=0; ptbFix.Parent=ptb
 
-						local valPart = Instance.new("TextLabel")
-						valPart.Size = UDim2.new(0.4, -8, 0, 16); valPart.Position = UDim2.new(0.6, 0, 0, yOff)
-						valPart.Text = tostring(getV()); valPart.TextColor3 = currentTheme.AccentColor
-						valPart.BackgroundTransparency = 1; valPart.Font = Enum.Font.SourceSansBold; valPart.TextSize = 12
-						valPart.TextXAlignment = Enum.TextXAlignment.Right; valPart.ZIndex = 61; valPart.Parent = picker
+					local ptLbl=Instance.new("TextLabel"); ptLbl.Size=UDim2.new(1,-80,1,0); ptLbl.Position=UDim2.new(0,14,0,0)
+					ptLbl.Text="Color Picker — "..colorName; ptLbl.TextColor3=currentTheme.TextColor
+					ptLbl.BackgroundTransparency=1; ptLbl.Font=Enum.Font.SourceSansBold; ptLbl.TextSize=14
+					ptLbl.TextXAlignment=Enum.TextXAlignment.Left; ptLbl.Parent=ptb
 
-						local track = Instance.new("Frame")
-						track.Size = UDim2.new(1, -16, 0, 7); track.Position = UDim2.new(0, 8, 0, yOff + 18)
-						track.BackgroundColor3 = currentTheme.SliderTrack; track.BorderSizePixel = 0; track.ZIndex = 61; track.Parent = picker
-						corner(track, 999)
+					local pclose=Instance.new("TextButton"); pclose.Size=UDim2.new(0,24,0,20); pclose.Position=UDim2.new(1,-28,0.5,-10)
+					pclose.Text="X"; pclose.TextColor3=Color3.new(1,1,1); pclose.BackgroundColor3=Color3.fromRGB(190,42,42)
+					pclose.Font=Enum.Font.SourceSansBold; pclose.TextSize=12; pclose.BorderSizePixel=0; pclose.Parent=ptb; corner(pclose,4)
 
-						local fill2 = Instance.new("Frame")
-						fill2.Size = UDim2.new(getV() / 255, 0, 1, 0); fill2.BackgroundColor3 = fillColor
-						fill2.BorderSizePixel = 0; fill2.ZIndex = 62; fill2.Parent = track
-						corner(fill2, 999)
-
-						local knob2 = Instance.new("Frame")
-						knob2.Size = UDim2.new(0, 14, 0, 14); knob2.Position = UDim2.new(getV() / 255, -7, 0.5, -7)
-						knob2.BackgroundColor3 = Color3.new(1, 1, 1); knob2.BorderSizePixel = 0; knob2.ZIndex = 63; knob2.Parent = track
-						corner(knob2, 999)
-
-						local dragging = false; local mc2, rc2
-
-						-- Dùng GetMouseLocation thay vì input.Position để đồng nhất.
-						local function upd(mouseX)
-							local rel = math.clamp((mouseX - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
-							local val = math.floor(rel * 255); setV(val)
-							fill2.Size = UDim2.new(rel, 0, 1, 0); knob2.Position = UDim2.new(rel, -7, 0.5, -7)
-							slbl.Text = ch .. ":  " .. val; valPart.Text = tostring(val); onUpdate()
-						end
-
-						local function stopD()
-							if not dragging then return end; dragging = false
-							if mc2 then mc2:Disconnect(); mc2 = nil end
-							if rc2 then rc2:Disconnect(); rc2 = nil end
-						end
-
-						local function startD()
-							if dragging then return end; dragging = true
-							upd(userInputService:GetMouseLocation().X)
-							mc2 = userInputService.InputChanged:Connect(function(ic)
-								if dragging and ic.UserInputType == Enum.UserInputType.MouseMovement then
-									upd(userInputService:GetMouseLocation().X)
+					-- Drag logic.
+					do
+						local drag=false; local sx,sy,sp; local mc,rc
+						ptb.InputBegan:Connect(function(i)
+							if i.UserInputType~=Enum.UserInputType.MouseButton1 then return end
+							drag=true; sx=i.Position.X; sy=i.Position.Y
+							sp={X={Scale=pwin.Position.X.Scale,Offset=pwin.Position.X.Offset},
+							    Y={Scale=pwin.Position.Y.Scale,Offset=pwin.Position.Y.Offset}}
+							mc=userInputService.InputChanged:Connect(function(ic)
+								if not drag or ic.UserInputType~=Enum.UserInputType.MouseMovement then return end
+								pwin.Position=UDim2.new(sp.X.Scale,sp.X.Offset+ic.Position.X-sx,sp.Y.Scale,sp.Y.Offset+ic.Position.Y-sy)
+							end)
+							rc=userInputService.InputEnded:Connect(function(ie)
+								if ie.UserInputType==Enum.UserInputType.MouseButton1 then
+									drag=false; if mc then mc:Disconnect() end; if rc then rc:Disconnect() end
 								end
 							end)
-							rc2 = userInputService.InputEnded:Connect(function(ie)
-								if ie.UserInputType == Enum.UserInputType.MouseButton1 then stopD() end
-							end)
+						end)
+					end
+
+					-- State.
+					local r=math.floor(default.R*255); local g=math.floor(default.G*255); local b=math.floor(default.B*255)
+					local rBox,gBox,bBox,hxBox
+
+					-- Big color preview.
+					local bigPrev=Instance.new("Frame"); bigPrev.Size=UDim2.new(0,110,0,110); bigPrev.Position=UDim2.new(0,12,0,44)
+					bigPrev.BackgroundColor3=default; bigPrev.BorderSizePixel=0; bigPrev.Parent=pwin; corner(bigPrev,7); stroke(bigPrev,currentTheme.Divider,1)
+
+					local function commit()
+						local nc=Color3.fromRGB(r,g,b)
+						bigPrev.BackgroundColor3=nc; preview.BackgroundColor3=nc
+						if hxBox then hxBox.Text=string.format("%02X%02X%02X",r,g,b) end
+						hexLbl.Text=string.format("#%02X%02X%02X",r,g,b)
+						pcall(callback,nc)
+						if configKey then
+							if not configData.colors then configData.colors={} end
+							configData.colors[configKey]={R=r,G=g,B=b}; safeWriteFile(configFile,configData)
 						end
-
-						-- Frame không nhận InputBegan đáng tin cậy → dùng TextButton trong suốt.
-						local hitBtn = Instance.new("TextButton")
-						hitBtn.Size               = UDim2.new(1, 0, 0, 24)
-						hitBtn.Position           = UDim2.new(0, 0, 0.5, -12)
-						hitBtn.BackgroundTransparency = 1
-						hitBtn.Text               = ""
-						hitBtn.ZIndex             = knob2.ZIndex + 2
-						hitBtn.Parent             = track
-						hitBtn.MouseButton1Down:Connect(startD)
 					end
 
-					makeChannelSlider("R", 30, function() return r end, function(v) r = v end, Color3.fromRGB(205, 52, 52))
-					makeChannelSlider("G", 76, function() return g end, function(v) g = v end, Color3.fromRGB(48, 195, 85))
-					makeChannelSlider("B", 122, function() return b end, function(v) b = v end, Color3.fromRGB(55, 145, 230))
-
-					-- Current color preview inside picker.
-					local previewRow = Instance.new("Frame")
-					previewRow.Size = UDim2.new(1, -16, 0, 24); previewRow.Position = UDim2.new(0, 8, 0, 164)
-					previewRow.BackgroundColor3 = Color3.fromRGB(r, g, b); previewRow.BorderSizePixel = 0; previewRow.ZIndex = 61; previewRow.Parent = picker
-					corner(previewRow, 4)
-
-					local origOnUpdate = onUpdate
-					onUpdate = function()
-						origOnUpdate()
-						previewRow.BackgroundColor3 = Color3.fromRGB(r, g, b)
+					-- RGB TextBox input.
+					local function makeRGBBox(ch,xP,getter,setter,accent)
+						local fr=Instance.new("Frame"); fr.Size=UDim2.new(0,82,0,56); fr.Position=UDim2.new(0,xP,0,44)
+						fr.BackgroundColor3=currentTheme.ElementBackground; fr.BorderSizePixel=0; fr.Parent=pwin; corner(fr,5)
+						local topAccent=Instance.new("Frame"); topAccent.Size=UDim2.new(1,0,0,3)
+						topAccent.BackgroundColor3=accent; topAccent.BorderSizePixel=0; topAccent.Parent=fr; corner(topAccent,2)
+						local cl=Instance.new("TextLabel"); cl.Size=UDim2.new(1,0,0,22); cl.Position=UDim2.new(0,0,0,3)
+						cl.Text=ch; cl.TextColor3=accent; cl.BackgroundTransparency=1
+						cl.Font=Enum.Font.SourceSansBold; cl.TextSize=13; cl.TextXAlignment=Enum.TextXAlignment.Center; cl.Parent=fr
+						local box=Instance.new("TextBox"); box.Size=UDim2.new(1,-10,0,26); box.Position=UDim2.new(0,5,0,26)
+						box.Text=tostring(getter()); box.TextColor3=currentTheme.TextColor
+						box.BackgroundColor3=currentTheme.InputBackground; box.BorderSizePixel=0
+						box.Font=Enum.Font.SourceSansBold; box.TextSize=17; box.TextXAlignment=Enum.TextXAlignment.Center
+						box.ClearTextOnFocus=false; box.Parent=fr; corner(box,4)
+						-- Live update on change.
+						box:GetPropertyChangedSignal("Text"):Connect(function()
+							local v=tonumber(box.Text)
+							if v and v>=0 and v<=255 then setter(math.floor(v)); commit() end
+						end)
+						-- Clamp on FocusLost.
+						box.FocusLost:Connect(function()
+							local v=math.clamp(math.floor(tonumber(box.Text) or getter()),0,255)
+							setter(v); box.Text=tostring(v); commit()
+						end)
+						return box
 					end
 
-					local btnRow = Instance.new("Frame")
-					btnRow.Size = UDim2.new(1, -16, 0, 26); btnRow.Position = UDim2.new(0, 8, 1, -30)
-					btnRow.BackgroundTransparency = 1; btnRow.ZIndex = 61; btnRow.Parent = picker
+					rBox=makeRGBBox("R",134,function()return r end,function(v)r=v end,Color3.fromRGB(215,55,55))
+					gBox=makeRGBBox("G",224,function()return g end,function(v)g=v end,Color3.fromRGB(50,195,75))
+					bBox=makeRGBBox("B",314,function()return b end,function(v)b=v end,Color3.fromRGB(55,120,225))
 
-					local doneBtn = Instance.new("TextButton")
-					doneBtn.Size = UDim2.new(0.5, -3, 1, 0); doneBtn.BackgroundColor3 = currentTheme.ToggleEnabled
-					doneBtn.Text = "✓ Done"; doneBtn.TextColor3 = Color3.new(1, 1, 1); doneBtn.Font = Enum.Font.SourceSansBold
-					doneBtn.TextSize = 13; doneBtn.BorderSizePixel = 0; doneBtn.ZIndex = 62; doneBtn.Parent = btnRow
-					addButtonEffects(doneBtn); corner(doneBtn, 4)
-
-					local cancelBtn = Instance.new("TextButton")
-					cancelBtn.Size = UDim2.new(0.5, -3, 1, 0); cancelBtn.Position = UDim2.new(0.5, 3, 0, 0)
-					cancelBtn.BackgroundColor3 = Color3.fromRGB(195, 42, 42); cancelBtn.Text = "✕ Cancel"
-					cancelBtn.TextColor3 = Color3.new(1, 1, 1); cancelBtn.Font = Enum.Font.SourceSansBold
-					cancelBtn.TextSize = 13; cancelBtn.BorderSizePixel = 0; cancelBtn.ZIndex = 62; cancelBtn.Parent = btnRow
-					addButtonEffects(cancelBtn); corner(cancelBtn, 4)
-
-					doneBtn.MouseButton1Click:Connect(function() picker:Destroy(); pickerOpen = false end)
-					cancelBtn.MouseButton1Click:Connect(function()
-						preview.BackgroundColor3 = default; picker:Destroy(); pickerOpen = false
+					-- Hex input.
+					local hxFr=Instance.new("Frame"); hxFr.Size=UDim2.new(1,-24,0,34); hxFr.Position=UDim2.new(0,12,0,110)
+					hxFr.BackgroundColor3=currentTheme.ElementBackground; hxFr.BorderSizePixel=0; hxFr.Parent=pwin; corner(hxFr,5)
+					local hxHash=Instance.new("TextLabel"); hxHash.Size=UDim2.new(0,26,1,0); hxHash.Position=UDim2.new(0,8,0,0)
+					hxHash.Text="#"; hxHash.TextColor3=currentTheme.SubTextColor; hxHash.BackgroundTransparency=1
+					hxHash.Font=Enum.Font.SourceSansBold; hxHash.TextSize=16; hxHash.Parent=hxFr
+					hxBox=Instance.new("TextBox"); hxBox.Size=UDim2.new(1,-42,0,22); hxBox.Position=UDim2.new(0,34,0.5,-11)
+					hxBox.Text=string.format("%02X%02X%02X",r,g,b); hxBox.TextColor3=currentTheme.TextColor
+					hxBox.BackgroundColor3=currentTheme.InputBackground; hxBox.BorderSizePixel=0
+					hxBox.Font=Enum.Font.Code; hxBox.TextSize=14; hxBox.ClearTextOnFocus=false; hxBox.Parent=hxFr; corner(hxBox,4)
+					hxBox.FocusLost:Connect(function()
+						local hex=hxBox.Text:upper():gsub("[^%x]","")
+						if #hex==6 then
+							r=tonumber("0x"..hex:sub(1,2)) or r; g=tonumber("0x"..hex:sub(3,4)) or g; b=tonumber("0x"..hex:sub(5,6)) or b
+							rBox.Text=tostring(r); gBox.Text=tostring(g); bBox.Text=tostring(b); commit()
+						end
+						hxBox.Text=string.format("%02X%02X%02X",r,g,b)
 					end)
+
+					-- Hue strip (click-based, không cần drag).
+					local function makeLabel(text,yP)
+						local l=Instance.new("TextLabel"); l.Size=UDim2.new(1,-24,0,14); l.Position=UDim2.new(0,12,0,yP)
+						l.Text=text; l.TextColor3=currentTheme.SectionLabel; l.BackgroundTransparency=1
+						l.Font=Enum.Font.SourceSansBold; l.TextSize=9; l.TextXAlignment=Enum.TextXAlignment.Left; l.Parent=pwin
+					end
+
+					makeLabel("HUE",154)
+					local hueFrame=Instance.new("Frame"); hueFrame.Size=UDim2.new(1,-24,0,20); hueFrame.Position=UDim2.new(0,12,0,168)
+					hueFrame.BackgroundTransparency=1; hueFrame.Parent=pwin
+					local HN=24
+					for i=0,HN-1 do
+						local hue=i/HN; local hc=Color3.fromHSV(hue,1,1)
+						local seg=Instance.new("TextButton"); seg.Size=UDim2.new(1/HN,0,1,0); seg.Position=UDim2.new(i/HN,0,0,0)
+						seg.BackgroundColor3=hc; seg.Text=""; seg.BorderSizePixel=0; seg.Parent=hueFrame
+						if i==0 then corner(seg,3) end; if i==HN-1 then corner(seg,3) end
+						seg.MouseButton1Click:Connect(function()
+							local _,cs,cv=Color3.toHSV(Color3.fromRGB(r,g,b))
+							local nc=Color3.fromHSV(hue,math.max(cs,0.65),math.max(cv,0.65))
+							r=math.floor(nc.R*255); g=math.floor(nc.G*255); b=math.floor(nc.B*255)
+							rBox.Text=tostring(r); gBox.Text=tostring(g); bBox.Text=tostring(b); commit()
+						end)
+					end
+
+					makeLabel("BRIGHTNESS",196)
+					local brtFrame=Instance.new("Frame"); brtFrame.Size=UDim2.new(1,-24,0,20); brtFrame.Position=UDim2.new(0,12,0,210)
+					brtFrame.BackgroundTransparency=1; brtFrame.Parent=pwin
+					local BN=16
+					for i=0,BN-1 do
+						local brt=1-i/BN
+						local seg=Instance.new("TextButton"); seg.Size=UDim2.new(1/BN,0,1,0); seg.Position=UDim2.new(i/BN,0,0,0)
+						local ch2,cs2,_=Color3.toHSV(Color3.fromRGB(r,g,b))
+						seg.BackgroundColor3=Color3.fromHSV(ch2,cs2,brt); seg.Text=""; seg.BorderSizePixel=0; seg.Parent=brtFrame
+						if i==0 then corner(seg,3) end; if i==BN-1 then corner(seg,3) end
+						seg.MouseButton1Click:Connect(function()
+							local ch3,cs3,_=Color3.toHSV(Color3.fromRGB(r,g,b))
+							local nc=Color3.fromHSV(ch3,cs3,brt)
+							r=math.floor(nc.R*255); g=math.floor(nc.G*255); b=math.floor(nc.B*255)
+							rBox.Text=tostring(r); gBox.Text=tostring(g); bBox.Text=tostring(b); commit()
+						end)
+					end
+
+					-- Presets.
+					makeLabel("PRESETS",238)
+					local PRESETS={
+						Color3.fromRGB(255,50,50), Color3.fromRGB(255,130,30), Color3.fromRGB(255,215,0),
+						Color3.fromRGB(50,210,50), Color3.fromRGB(50,200,200), Color3.fromRGB(55,110,255),
+						Color3.fromRGB(160,50,255),Color3.fromRGB(255,50,185),Color3.fromRGB(255,255,255),
+						Color3.fromRGB(165,165,165),Color3.fromRGB(60,60,60), Color3.fromRGB(0,0,0),
+					}
+					for i,preset in ipairs(PRESETS) do
+						local ps=Instance.new("TextButton"); ps.Size=UDim2.new(0,28,0,28)
+						ps.Position=UDim2.new(0,12+(i-1)*30,0,252); ps.BackgroundColor3=preset; ps.Text=""; ps.BorderSizePixel=0; ps.Parent=pwin
+						corner(ps,4); stroke(ps,currentTheme.Divider,1)
+						ps.MouseButton1Click:Connect(function()
+							r=math.floor(preset.R*255); g=math.floor(preset.G*255); b=math.floor(preset.B*255)
+							rBox.Text=tostring(r); gBox.Text=tostring(g); bBox.Text=tostring(b); commit()
+						end)
+					end
+
+					-- Apply / Cancel.
+					local applyBtn=Instance.new("TextButton"); applyBtn.Size=UDim2.new(0.5,-14,0,32); applyBtn.Position=UDim2.new(0,12,1,-42)
+					applyBtn.Text="Apply"; applyBtn.TextColor3=Color3.new(1,1,1); applyBtn.BackgroundColor3=currentTheme.ToggleEnabled
+					applyBtn.Font=Enum.Font.SourceSansBold; applyBtn.TextSize=14; applyBtn.BorderSizePixel=0; applyBtn.Parent=pwin; corner(applyBtn,5)
+					addButtonEffects(applyBtn)
+
+					local cancelBtn=Instance.new("TextButton"); cancelBtn.Size=UDim2.new(0.5,-14,0,32); cancelBtn.Position=UDim2.new(0.5,4,1,-42)
+					cancelBtn.Text="Cancel"; cancelBtn.TextColor3=Color3.new(1,1,1); cancelBtn.BackgroundColor3=Color3.fromRGB(175,42,42)
+					cancelBtn.Font=Enum.Font.SourceSansBold; cancelBtn.TextSize=14; cancelBtn.BorderSizePixel=0; cancelBtn.Parent=pwin; corner(cancelBtn,5)
+					addButtonEffects(cancelBtn)
+
+					local function closePicker()
+						pickerOpen=false
+						tweenService:Create(pwin,getTI(0.22,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Size=UDim2.new(0,0,0,0)}):Play()
+						task.wait(0.25); pgui:Destroy()
+					end
+
+					applyBtn.MouseButton1Click:Connect(function()
+						local nc=Color3.fromRGB(r,g,b); preview.BackgroundColor3=nc; pcall(callback,nc)
+						if configKey then
+							if not configData.colors then configData.colors={} end
+							configData.colors[configKey]={R=r,G=g,B=b}; safeWriteFile(configFile,configData)
+						end
+						closePicker()
+					end)
+					cancelBtn.MouseButton1Click:Connect(function() preview.BackgroundColor3=default; closePicker() end)
+					pclose.MouseButton1Click:Connect(closePicker)
+
+					-- Open animation.
+					tweenService:Create(pwin,getTI(0.38,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Size=UDim2.new(0,PW,0,PH)}):Play()
 				end)
 
 				return f
