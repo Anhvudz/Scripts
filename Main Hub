@@ -1,200 +1,242 @@
--- Potassium Hub — Main Menu v2.1
--- Yêu cầu: MyHub.lua cùng thư mục workspace.
-
+-- Potassium Hub v2.2
 local httpService   = game:GetService("HttpService")
 local tweenService  = game:GetService("TweenService")
 local userInput     = game:GetService("UserInputService")
 local debrisService = game:GetService("Debris")
 local soundService  = game:GetService("SoundService")
+local guiService    = game:GetService("GuiService")
 local exploitGui    = (typeof(gethui)=="function" and gethui()) or game:GetService("CoreGui")
 
 local function safeMake(p) if not isfolder(p) then pcall(makefolder,p) end end
 safeMake("PotassiumHub")
 
--- Load MyHub.
 local MyHub = loadstring(game:HttpGet('https://raw.githubusercontent.com/Anhvudz/Scripts/main/My%20hub%20script'))()
-
---------------------------------------------------------------------------------
--- JSON HELPERS
---------------------------------------------------------------------------------
-local function loadJSON(file)
-	if not isfile(file) then return {} end
-	local ok,d=pcall(httpService.JSONDecode,httpService,readfile(file))
+local function loadJSON(f)
+	if not isfile(f) then return {} end
+	local ok,d=pcall(httpService.JSONDecode,httpService,readfile(f))
 	return (ok and type(d)=="table") and d or {}
 end
-local function saveJSON(file,data) pcall(writefile,file,httpService:JSONEncode(data)) end
+local function saveJSON(f,d) pcall(writefile,f,httpService:JSONEncode(d)) end
 
---------------------------------------------------------------------------------
--- SETTINGS & SCRIPTS & SNIPPETS
---------------------------------------------------------------------------------
-local SETTINGS_FILE  = "PotassiumHub/settings.json"
-local SCRIPTS_FILE   = "PotassiumHub/scripts.json"
-local SNIPPETS_FILE  = "PotassiumHub/snippets.json"
+local SETTINGS_FILE = "PotassiumHub/settings.json"
+local SCRIPTS_FILE  = "PotassiumHub/scripts.json"
+local SNIPPETS_FILE = "PotassiumHub/snippets.json"
 
-local DEFAULT = {
-	theme="Default", oldAnimation=false, oldNotify=false, oldUi=false,
-	betaUi=false, noShadow=false, soundSrc="156286438", soundVol=45,
-}
-
-local cfg = loadJSON(SETTINGS_FILE)
+local DEFAULT={theme="Default",oldAnimation=false,oldNotify=false,oldUi=false,betaUi=false,noShadow=false,soundSrc="156286438",soundVol=45}
+local cfg=loadJSON(SETTINGS_FILE)
 for k,v in pairs(DEFAULT) do if cfg[k]==nil then cfg[k]=v end end
-local saveCfg = function() saveJSON(SETTINGS_FILE,cfg) end
+local function saveCfg()
+	saveJSON(SETTINGS_FILE,cfg)
+	-- Lưu global settings để script khác dùng MyHub cũng nhận luôn
+	MyHub.GlobalSettings.theme    = cfg.oldUi and "Classic" or cfg.betaUi and "BetaUI" or cfg.theme
+	MyHub.GlobalSettings.noShadow = cfg.noShadow
+	MyHub.Settings.oldAnimation   = cfg.oldAnimation
+	MyHub.Settings.oldNotify      = cfg.oldNotify
+	MyHub:SaveGlobalSettings()
+end
 
 local scripts     = loadJSON(SCRIPTS_FILE)
 local saveScripts = function() saveJSON(SCRIPTS_FILE,scripts) end
+local userSnippets= loadJSON(SNIPPETS_FILE)
+local saveSnippets= function() saveJSON(SNIPPETS_FILE,userSnippets) end
 
-local userSnippets = loadJSON(SNIPPETS_FILE)  -- [{trigger,insert,label,desc}, ...]
-local saveSnippets = function() saveJSON(SNIPPETS_FILE,userSnippets) end
-
--- Apply settings to MyHub immediately.
 MyHub.Settings.oldAnimation = cfg.oldAnimation
 MyHub.Settings.oldNotify    = cfg.oldNotify
 
---------------------------------------------------------------------------------
--- EXTRA THEMES
---------------------------------------------------------------------------------
-local THEMES = {}
-
+-- THEMES
+local THEMES={}
 THEMES.Sunset={TextColor=Color3.fromRGB(255,235,210),SubTextColor=Color3.fromRGB(195,155,115),Background=Color3.fromRGB(26,14,8),Topbar=Color3.fromRGB(40,20,10),ElementBackground=Color3.fromRGB(48,26,14),ElementBackgroundHover=Color3.fromRGB(60,34,18),SliderFill=Color3.fromRGB(245,125,40),SliderTrack=Color3.fromRGB(50,28,16),ToggleEnabled=Color3.fromRGB(245,135,40),ToggleDisabled=Color3.fromRGB(90,50,28),DropdownBg=Color3.fromRGB(26,14,8),DropdownItem=Color3.fromRGB(36,20,10),DropdownItemHover=Color3.fromRGB(48,26,14),InputBackground=Color3.fromRGB(30,16,8),InputStroke=Color3.fromRGB(68,38,18),InputStrokeActive=Color3.fromRGB(245,125,40),PlaceholderColor=Color3.fromRGB(135,85,50),NotificationBg=Color3.fromRGB(24,12,6),AccentColor=Color3.fromRGB(245,135,40),AccentDim=Color3.fromRGB(165,85,24),SectionLabel=Color3.fromRGB(135,85,50),TabActive=Color3.fromRGB(54,28,14),TabInactive=Color3.fromRGB(36,18,8),Divider=Color3.fromRGB(62,34,16),ProgressLow=Color3.fromRGB(210,50,50),ProgressMid=Color3.fromRGB(245,135,40),ProgressHigh=Color3.fromRGB(245,210,40)}
 THEMES.Neon={TextColor=Color3.fromRGB(200,255,210),SubTextColor=Color3.fromRGB(100,190,115),Background=Color3.fromRGB(8,12,8),Topbar=Color3.fromRGB(10,18,10),ElementBackground=Color3.fromRGB(12,22,12),ElementBackgroundHover=Color3.fromRGB(16,30,16),SliderFill=Color3.fromRGB(0,255,80),SliderTrack=Color3.fromRGB(12,30,12),ToggleEnabled=Color3.fromRGB(0,255,100),ToggleDisabled=Color3.fromRGB(30,60,30),DropdownBg=Color3.fromRGB(8,14,8),DropdownItem=Color3.fromRGB(12,20,12),DropdownItemHover=Color3.fromRGB(16,28,16),InputBackground=Color3.fromRGB(10,18,10),InputStroke=Color3.fromRGB(20,50,20),InputStrokeActive=Color3.fromRGB(0,255,80),PlaceholderColor=Color3.fromRGB(55,115,65),NotificationBg=Color3.fromRGB(8,14,8),AccentColor=Color3.fromRGB(0,255,80),AccentDim=Color3.fromRGB(0,165,52),SectionLabel=Color3.fromRGB(55,140,65),TabActive=Color3.fromRGB(14,28,14),TabInactive=Color3.fromRGB(10,18,10),Divider=Color3.fromRGB(18,45,18),ProgressLow=Color3.fromRGB(255,50,80),ProgressMid=Color3.fromRGB(255,200,0),ProgressHigh=Color3.fromRGB(0,255,80)}
 THEMES.Purple={TextColor=Color3.fromRGB(235,225,255),SubTextColor=Color3.fromRGB(160,140,200),Background=Color3.fromRGB(16,10,24),Topbar=Color3.fromRGB(24,14,36),ElementBackground=Color3.fromRGB(30,18,46),ElementBackgroundHover=Color3.fromRGB(38,24,58),SliderFill=Color3.fromRGB(150,80,255),SliderTrack=Color3.fromRGB(30,18,46),ToggleEnabled=Color3.fromRGB(160,90,255),ToggleDisabled=Color3.fromRGB(65,42,90),DropdownBg=Color3.fromRGB(16,10,24),DropdownItem=Color3.fromRGB(24,14,36),DropdownItemHover=Color3.fromRGB(32,20,48),InputBackground=Color3.fromRGB(20,12,30),InputStroke=Color3.fromRGB(55,35,80),InputStrokeActive=Color3.fromRGB(150,80,255),PlaceholderColor=Color3.fromRGB(110,80,155),NotificationBg=Color3.fromRGB(14,8,22),AccentColor=Color3.fromRGB(160,90,255),AccentDim=Color3.fromRGB(100,55,180),SectionLabel=Color3.fromRGB(110,80,155),TabActive=Color3.fromRGB(36,22,54),TabInactive=Color3.fromRGB(24,14,36),Divider=Color3.fromRGB(50,32,72),ProgressLow=Color3.fromRGB(210,50,80),ProgressMid=Color3.fromRGB(200,150,50),ProgressHigh=Color3.fromRGB(160,90,255)}
 THEMES.Rose={TextColor=Color3.fromRGB(255,228,232),SubTextColor=Color3.fromRGB(200,155,165),Background=Color3.fromRGB(24,10,14),Topbar=Color3.fromRGB(36,14,20),ElementBackground=Color3.fromRGB(46,18,26),ElementBackgroundHover=Color3.fromRGB(58,24,34),SliderFill=Color3.fromRGB(255,90,120),SliderTrack=Color3.fromRGB(46,18,26),ToggleEnabled=Color3.fromRGB(255,100,130),ToggleDisabled=Color3.fromRGB(100,48,60),DropdownBg=Color3.fromRGB(22,10,14),DropdownItem=Color3.fromRGB(34,14,20),DropdownItemHover=Color3.fromRGB(44,18,26),InputBackground=Color3.fromRGB(28,12,16),InputStroke=Color3.fromRGB(75,30,42),InputStrokeActive=Color3.fromRGB(255,90,120),PlaceholderColor=Color3.fromRGB(155,90,105),NotificationBg=Color3.fromRGB(20,8,12),AccentColor=Color3.fromRGB(255,100,130),AccentDim=Color3.fromRGB(180,65,90),SectionLabel=Color3.fromRGB(155,90,105),TabActive=Color3.fromRGB(52,22,32),TabInactive=Color3.fromRGB(34,14,20),Divider=Color3.fromRGB(68,26,38),ProgressLow=Color3.fromRGB(255,90,90),ProgressMid=Color3.fromRGB(255,180,60),ProgressHigh=Color3.fromRGB(255,100,130)}
 THEMES.Forest={TextColor=Color3.fromRGB(210,240,215),SubTextColor=Color3.fromRGB(125,172,135),Background=Color3.fromRGB(10,18,12),Topbar=Color3.fromRGB(14,26,16),ElementBackground=Color3.fromRGB(18,32,20),ElementBackgroundHover=Color3.fromRGB(24,40,26),SliderFill=Color3.fromRGB(60,185,80),SliderTrack=Color3.fromRGB(18,36,20),ToggleEnabled=Color3.fromRGB(65,195,85),ToggleDisabled=Color3.fromRGB(35,75,40),DropdownBg=Color3.fromRGB(10,18,12),DropdownItem=Color3.fromRGB(16,26,18),DropdownItemHover=Color3.fromRGB(22,34,24),InputBackground=Color3.fromRGB(12,22,14),InputStroke=Color3.fromRGB(30,60,34),InputStrokeActive=Color3.fromRGB(60,185,80),PlaceholderColor=Color3.fromRGB(70,125,82),NotificationBg=Color3.fromRGB(8,16,10),AccentColor=Color3.fromRGB(65,195,85),AccentDim=Color3.fromRGB(40,130,55),SectionLabel=Color3.fromRGB(70,125,82),TabActive=Color3.fromRGB(22,40,24),TabInactive=Color3.fromRGB(14,24,16),Divider=Color3.fromRGB(28,55,32),ProgressLow=Color3.fromRGB(210,50,50),ProgressMid=Color3.fromRGB(200,175,40),ProgressHigh=Color3.fromRGB(65,195,85)}
 THEMES.Midnight={TextColor=Color3.fromRGB(180,190,220),SubTextColor=Color3.fromRGB(108,118,152),Background=Color3.fromRGB(6,8,18),Topbar=Color3.fromRGB(10,12,26),ElementBackground=Color3.fromRGB(14,16,34),ElementBackgroundHover=Color3.fromRGB(18,22,44),SliderFill=Color3.fromRGB(80,110,220),SliderTrack=Color3.fromRGB(14,18,38),ToggleEnabled=Color3.fromRGB(85,120,225),ToggleDisabled=Color3.fromRGB(38,45,85),DropdownBg=Color3.fromRGB(8,10,20),DropdownItem=Color3.fromRGB(12,14,28),DropdownItemHover=Color3.fromRGB(18,20,40),InputBackground=Color3.fromRGB(10,12,24),InputStroke=Color3.fromRGB(28,34,65),InputStrokeActive=Color3.fromRGB(80,110,220),PlaceholderColor=Color3.fromRGB(68,78,128),NotificationBg=Color3.fromRGB(6,8,18),AccentColor=Color3.fromRGB(85,120,225),AccentDim=Color3.fromRGB(55,78,160),SectionLabel=Color3.fromRGB(68,78,128),TabActive=Color3.fromRGB(18,22,46),TabInactive=Color3.fromRGB(10,12,26),Divider=Color3.fromRGB(24,30,58),ProgressLow=Color3.fromRGB(210,50,80),ProgressMid=Color3.fromRGB(200,155,30),ProgressHigh=Color3.fromRGB(85,120,225)}
-
--- "Old UI" style (flat, minimal).
 THEMES.Classic={TextColor=Color3.fromRGB(225,225,225),SubTextColor=Color3.fromRGB(155,155,155),Background=Color3.fromRGB(30,30,30),Topbar=Color3.fromRGB(45,45,45),ElementBackground=Color3.fromRGB(50,50,50),ElementBackgroundHover=Color3.fromRGB(60,60,60),SliderFill=Color3.fromRGB(0,140,215),SliderTrack=Color3.fromRGB(65,65,65),ToggleEnabled=Color3.fromRGB(0,146,214),ToggleDisabled=Color3.fromRGB(100,100,100),DropdownBg=Color3.fromRGB(35,35,35),DropdownItem=Color3.fromRGB(42,42,42),DropdownItemHover=Color3.fromRGB(52,52,52),InputBackground=Color3.fromRGB(40,40,40),InputStroke=Color3.fromRGB(70,70,70),InputStrokeActive=Color3.fromRGB(0,140,215),PlaceholderColor=Color3.fromRGB(130,130,130),NotificationBg=Color3.fromRGB(28,28,28),AccentColor=Color3.fromRGB(0,140,215),AccentDim=Color3.fromRGB(0,90,150),SectionLabel=Color3.fromRGB(110,110,110),TabActive=Color3.fromRGB(58,58,58),TabInactive=Color3.fromRGB(42,42,42),Divider=Color3.fromRGB(65,65,65),ProgressLow=Color3.fromRGB(215,50,50),ProgressMid=Color3.fromRGB(215,165,30),ProgressHigh=Color3.fromRGB(0,175,70)}
-
--- "Beta UI" style (vibrant, modern).
 THEMES.BetaUI={TextColor=Color3.fromRGB(245,245,255),SubTextColor=Color3.fromRGB(150,155,185),Background=Color3.fromRGB(10,10,16),Topbar=Color3.fromRGB(14,14,22),ElementBackground=Color3.fromRGB(18,18,28),ElementBackgroundHover=Color3.fromRGB(24,24,38),SliderFill=Color3.fromRGB(90,60,255),SliderTrack=Color3.fromRGB(22,22,36),ToggleEnabled=Color3.fromRGB(95,65,255),ToggleDisabled=Color3.fromRGB(50,45,80),DropdownBg=Color3.fromRGB(12,12,20),DropdownItem=Color3.fromRGB(18,18,28),DropdownItemHover=Color3.fromRGB(26,24,42),InputBackground=Color3.fromRGB(14,14,22),InputStroke=Color3.fromRGB(40,36,72),InputStrokeActive=Color3.fromRGB(90,60,255),PlaceholderColor=Color3.fromRGB(80,75,130),NotificationBg=Color3.fromRGB(10,10,18),AccentColor=Color3.fromRGB(95,65,255),AccentDim=Color3.fromRGB(60,40,180),SectionLabel=Color3.fromRGB(80,75,130),TabActive=Color3.fromRGB(26,22,48),TabInactive=Color3.fromRGB(14,14,22),Divider=Color3.fromRGB(36,32,68),ProgressLow=Color3.fromRGB(220,45,80),ProgressMid=Color3.fromRGB(200,155,30),ProgressHigh=Color3.fromRGB(95,65,255)}
 
---------------------------------------------------------------------------------
--- BASE SNIPPETS (code editor autocomplete)
---------------------------------------------------------------------------------
+-- BASE SNIPPETS
 local BASE_SNIPPETS = {
-	-- Shortcuts
-	{trigger="loc",    insert="local ",                     label="local",         desc="Khai báo biến local"},
-	{trigger="fn",     insert="function ",                  label="function",      desc="Khai báo hàm"},
-	{trigger="ret",    insert="return ",                    label="return",        desc="Trả về giá trị"},
-	{trigger="prt",    insert="print(",                     label="print()",       desc="In ra output"},
-	{trigger="wrn",    insert="warn(",                      label="warn()",        desc="In cảnh báo (vàng)"},
-	{trigger="pcl",    insert="pcall(",                     label="pcall()",       desc="Gọi hàm an toàn, bắt lỗi"},
-	{trigger="wt",     insert="task.wait(",                 label="task.wait()",   desc="Dừng thread trong n giây"},
-	{trigger="tsp",    insert="task.spawn(",                label="task.spawn()",  desc="Chạy hàm trên thread mới"},
-	{trigger="tdl",    insert="task.delay(",                label="task.delay()",  desc="Chạy hàm sau n giây"},
-	{trigger="iif",    insert="if  then\n\t\nend",          label="if...then",     desc="Câu điều kiện if"},
-	{trigger="iife",   insert="if  then\n\t\nelse\n\t\nend",label="if...else",     desc="Câu điều kiện if-else"},
-	{trigger="ffor",   insert="for i = 1,  do\n\t\nend",   label="for i=1,n",     desc="Vòng lặp for số"},
-	{trigger="fpairs", insert="for k, v in pairs() do\n\t\nend",label="for pairs",desc="Vòng lặp qua table"},
-	{trigger="whl",    insert="while  do\n\t\nend",         label="while",         desc="Vòng lặp while"},
-	{trigger="rep",    insert="repeat\n\t\nuntil ",         label="repeat...until",desc="Vòng lặp repeat-until"},
-	-- MyHub
-	{trigger="My",     insert="MyHub",                      label="MyHub",         desc="Library chính của Potassium Hub"},
-	{trigger="MyHub:N",insert='MyHub:Notify("Title", "Text", 3)',label="Notify",   desc="Hiển thị notification"},
-	{trigger="MyHub:C",insert='MyHub:CreateWindow({\n\tName = "",\n\tLoadingTitle = "",\n})',label="CreateWindow",desc="Tạo cửa sổ MyHub"},
-	{trigger="MyHub:S",insert='MyHub:SetClickSound("',      label="SetClickSound", desc="Đổi sound nút bấm"},
-	-- Window
-	{trigger="W:NT",   insert='Window:NewTab({ Name = "", Icon = "" })',label="NewTab",desc="Tạo tab mới"},
-	{trigger="W:ST",   insert='Window:SetTheme("Default")', label="SetTheme",      desc="Đổi theme: Default/Ocean/Crimson/..."},
-	{trigger="W:AT",   insert='Window:AddTheme("Name", {})',label="AddTheme",      desc="Thêm theme tùy chỉnh"},
-	-- Section elements
-	{trigger="S:NB",   insert='S:NewButton({\n\tName = "",\n\tCallback = function()\n\t\t\n\tend,\n})',  label="NewButton",  desc="Tạo nút bấm, có thể thêm nested"},
-	{trigger="S:NT",   insert='S:NewToggle({\n\tName = "",\n\tCurrentValue = false,\n\tFlag = "",\n\tCallback = function(v)\n\t\t\n\tend,\n})', label="NewToggle",  desc="Toggle on/off, lưu config nếu có Flag"},
-	{trigger="S:NSl",  insert='S:NewSlider({\n\tName = "",\n\tRange = {0, 100},\n\tCurrentValue = 50,\n\tDecimals = 0,\n\tFlag = "",\n\tCallback = function(v)\n\t\t\n\tend,\n})', label="NewSlider",  desc="Slider kéo giá trị, hỗ trợ thập phân"},
-	{trigger="S:ND",   insert='S:NewDropdown({\n\tName = "",\n\tOptions = {},\n\tCurrentOption = "",\n\tFlag = "",\n\tCallback = function(v)\n\t\t\n\tend,\n})', label="NewDropdown",desc="Dropdown chọn option"},
-	{trigger="S:NL",   insert='S:NewLabel({ Name = "" })',  label="NewLabel",      desc="Text label, có :SetText()"},
-	{trigger="S:NPar", insert='S:NewParagraph({ Title = "", Content = "" })', label="NewParagraph", desc="Đoạn văn dài với tiêu đề"},
-	{trigger="S:NI",   insert='S:NewInput({\n\tName = "",\n\tPlaceholderText = "",\n\tFlag = "",\n\tCallback = function(text, enter)\n\t\t\n\tend,\n})', label="NewInput",   desc="TextBox nhập text, callback khi FocusLost"},
-	{trigger="S:NTB",  insert='S:NewTextBoxButton({\n\tName = "",\n\tPlaceholderText = "",\n\tButtonText = "Submit",\n\tCallback = function(text)\n\t\t\n\tend,\n})', label="NewTextBoxButton",desc="TextBox + nút submit"},
-	{trigger="S:NC",   insert='S:NewColorPicker({\n\tName = "",\n\tCurrentValue = Color3.fromRGB(255,255,255),\n\tFlag = "",\n\tCallback = function(color)\n\t\t\n\tend,\n})', label="NewColorPicker",desc="Bộ chọn màu draggable, hỗ trợ HEX"},
-	{trigger="S:NK",   insert='S:NewKeybind({\n\tName = "",\n\tCurrentKeybind = Enum.KeyCode.K,\n\tFlag = "",\n\tCallback = function(key)\n\t\t\n\tend,\n})', label="NewKeybind",desc="Bind phím, bấm nút rồi nhấn phím"},
-	{trigger="S:NPB",  insert='S:NewProgressBar({ Name = "", Max = 100 })', label="NewProgressBar",desc="Thanh tiến trình, dùng :Set(v) và :SetMax(m)"},
-	{trigger="S:NMe",  insert='S:NewMiniExplorer({\n\tRoot = game,\n\tHeight = 220,\n\tCallback = function(ins)\n\t\t\n\tend,\n})', label="NewMiniExplorer",desc="Browse instance trong game, filter Name~/=/Class~"},
-	{trigger="S:NIL",  insert='S:NewImageLabel({ Name = "", ImageId = 0, Height = 100 })', label="NewImageLabel",desc="Hiển thị ảnh, hỗ trợ rbxassetid và file"},
-	{trigger="S:NIB",  insert='S:NewImageButton({\n\tName = "",\n\tImageId = 0,\n\tHeight = 80,\n\tCallback = function()\n\t\t\n\tend,\n})', label="NewImageButton",desc="Nút ảnh có callback"},
-	{trigger="S:NV",   insert='S:NewViewportFrame({ Name = "", Height = 120 })', label="NewViewportFrame",desc="Preview 3D instance trong khung"},
-	-- Section với image
-	{trigger="T:NSI",  insert='Tab:NewSection({ Name = "", Image = "rbxassetid://0" })', label="NewSection+Image",desc="Section có ảnh nền mờ 60%"},
-	-- Roblox common
-	{trigger="lP",     insert="game.Players.LocalPlayer",    label="LocalPlayer",   desc="Player đang chơi"},
-	{trigger="char",   insert="game.Players.LocalPlayer.Character", label="Character",desc="Character của LocalPlayer"},
-	{trigger="hrp",    insert='game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")', label="HumanoidRootPart",desc="Part gốc của character"},
-	{trigger="hum",    insert='game.Players.LocalPlayer.Character:FindFirstChild("Humanoid")', label="Humanoid",desc="Humanoid để chỉnh WalkSpeed/JumpPower/Health"},
-	{trigger="cam",    insert="workspace.CurrentCamera",      label="Camera",        desc="Camera hiện tại"},
-	{trigger="gPS",    insert='game:GetService("Players")',   label="Players",       desc="Players service"},
-	{trigger="gRS",    insert='game:GetService("RunService")',label="RunService",    desc="RunService: Heartbeat, RenderStepped"},
-	{trigger="gUIS",   insert='game:GetService("UserInputService")',label="UIS",    desc="UserInputService: bắt phím/chuột"},
-	{trigger="gTS",    insert='game:GetService("TweenService")',label="TweenService",desc="TweenService: animation mượt"},
-	{trigger="gHS",    insert='game:GetService("HttpService")',label="HttpService",  desc="HttpService: JSONEncode/JSONDecode"},
-	{trigger=".Va",    insert=".Value",    label=".Value",      desc="Lấy giá trị của ValueBase (NumberValue, StringValue,...)"},
-	{trigger=".Pa",    insert=".Parent",   label=".Parent",     desc="Instance cha"},
-	{trigger=".Na",    insert=".Name",     label=".Name",       desc="Tên instance"},
-	-- Constructors
-	{trigger="C3",     insert="Color3.fromRGB(", label="Color3.fromRGB()",desc="Tạo màu từ R,G,B (0-255)"},
-	{trigger="V3",     insert="Vector3.new(",    label="Vector3.new()",   desc="Tạo vector 3D"},
-	{trigger="CF",     insert="CFrame.new(",     label="CFrame.new()",    desc="Tạo CFrame (vị trí + hướng)"},
-	{trigger="U2",     insert="UDim2.new(",      label="UDim2.new()",     desc="UDim2(xScale,xOff,yScale,yOff)"},
-	{trigger="Ins",    insert="Instance.new(",   label="Instance.new()",  desc="Tạo instance mới"},
-	{trigger="Ti",     insert="TweenInfo.new(",  label="TweenInfo.new()", desc="TweenInfo(time,style,dir,repeat,reverse,delay)"},
-	{trigger="Twn",    insert="tweenService:Create(, TweenInfo.new(0.3), {}):Play()", label="Tween",desc="Tạo và chạy tween animation"},
-	-- loadstring
-	{trigger="lstr",   insert='loadstring(game:HttpGet(""))()',label="loadstring+HttpGet",desc="Load script từ URL"},
-	{trigger="lfile",  insert='loadstring(readfile(""))()',    label="loadstring+readfile",desc="Load script từ file local"},
+	{trigger="loc",    insert="local ",         label="local",          desc="Khai bao bien local"},
+	{trigger="fn",     insert="function ",      label="function",       desc="Khai bao ham"},
+	{trigger="ret",    insert="return ",        label="return",         desc="Tra ve gia tri"},
+	{trigger="prt",    insert="print(",         label="print()",        desc="In ra output"},
+	{trigger="wrn",    insert="warn(",          label="warn()",         desc="In canh bao vang"},
+	{trigger="pcl",    insert="pcall(",         label="pcall()",        desc="Goi ham an toan, bat loi"},
+	{trigger="wt",     insert="task.wait(",     label="task.wait()",    desc="Dung thread trong n giay"},
+	{trigger="tsp",    insert="task.spawn(",    label="task.spawn()",   desc="Chay ham tren thread moi"},
+	{trigger="tdl",    insert="task.delay(",    label="task.delay()",   desc="Chay ham sau n giay"},
+	{trigger="iif",    insert="if  then\n\t\nend",             label="if...then",      desc="Cau dieu kien if"},
+	{trigger="iife",   insert="if  then\n\t\nelse\n\t\nend",  label="if...else",      desc="Cau dieu kien if-else"},
+	{trigger="ffor",   insert="for i = 1,  do\n\t\nend",      label="for i=1,n",      desc="Vong lap for so"},
+	{trigger="fpairs", insert="for k, v in pairs() do\n\t\nend",label="for pairs",    desc="Vong lap qua table"},
+	{trigger="whl",    insert="while  do\n\t\nend",            label="while",          desc="Vong lap while"},
+	{trigger="My",     insert="MyHub",          label="MyHub",          desc="Library chinh cua Potassium Hub"},
+	{trigger="MyHub:N",insert='MyHub:Notify("Title","Text",3)',label="Notify",        desc="Hien thi notification"},
+	{trigger="MyHub:C",insert='MyHub:CreateWindow({\n\tName="",\n\tLoadingTitle="",\n})',label="CreateWindow",desc="Tao cua so MyHub"},
+	{trigger="MyHub:S",insert='MyHub:SetClickSound("',label="SetClickSound",          desc="Doi sound nut bam"},
+	{trigger="MyHub:Sv",insert='MyHub:SaveGlobalSettings()',label="SaveGlobalSettings",desc="Luu settings de script khac dung"},
+	{trigger="W:NT",   insert='Window:NewTab({Name="",Icon=""})',label="NewTab",      desc="Tao tab moi"},
+	{trigger="W:ST",   insert='Window:SetTheme("Default")',    label="SetTheme",       desc="Doi theme: Default/Ocean/..."},
+	{trigger="T:NS",   insert='Tab:NewSection({Name=""})',     label="NewSection",     desc="Tao section trong tab"},
+	{trigger="T:NSI",  insert='Tab:NewSection({Name="",Image="rbxassetid://0"})',label="NewSection+Img",desc="Section co anh nen mo 60%"},
+	{trigger="S:NB",   insert='S:NewButton({\n\tName="",\n\tCallback=function()\n\t\t\n\tend,\n})', label="NewButton",desc="Tao nut bam"},
+	{trigger="S:NT",   insert='S:NewToggle({\n\tName="",\n\tCurrentValue=false,\n\tFlag="",\n\tCallback=function(v)\n\t\t\n\tend,\n})',label="NewToggle",desc="Toggle on/off"},
+	{trigger="S:NSl",  insert='S:NewSlider({\n\tName="",\n\tRange={0,100},\n\tCurrentValue=50,\n\tFlag="",\n\tCallback=function(v)\n\t\t\n\tend,\n})',label="NewSlider",desc="Slider keo gia tri"},
+	{trigger="S:ND",   insert='S:NewDropdown({\n\tName="",\n\tOptions={},\n\tCurrentOption="",\n\tFlag="",\n\tCallback=function(v)\n\t\t\n\tend,\n})',label="NewDropdown",desc="Dropdown chon option"},
+	{trigger="S:NL",   insert='S:NewLabel({Name=""})',         label="NewLabel",       desc="Text label"},
+	{trigger="S:NI",   insert='S:NewInput({\n\tName="",\n\tPlaceholderText="",\n\tFlag="",\n\tCallback=function(t,e)\n\t\t\n\tend,\n})',label="NewInput",desc="TextBox nhap text"},
+	{trigger="S:NC",   insert='S:NewColorPicker({\n\tName="",\n\tCurrentValue=Color3.fromRGB(255,255,255),\n\tFlag="",\n\tCallback=function(c)\n\t\t\n\tend,\n})',label="NewColorPicker",desc="Bo chon mau draggable"},
+	{trigger="S:NK",   insert='S:NewKeybind({\n\tName="",\n\tCurrentKeybind=Enum.KeyCode.K,\n\tFlag="",\n\tCallback=function(k)\n\t\t\n\tend,\n})',label="NewKeybind",desc="Bind phim"},
+	{trigger="S:NPB",  insert='S:NewProgressBar({Name="",Max=100})',label="NewProgressBar",desc="Thanh tien trinh"},
+	{trigger="S:NMe",  insert='S:NewMiniExplorer({\n\tRoot=game,\n\tHeight=220,\n\tCallback=function(ins)\n\t\t\n\tend,\n})',label="NewMiniExplorer",desc="Browse instance"},
+	{trigger="S:NIL",  insert='S:NewImageLabel({Name="",ImageId=0,Height=100})',label="NewImageLabel",desc="Hien thi anh"},
+	{trigger="S:NIB",  insert='S:NewImageButton({\n\tName="",\n\tImageId=0,\n\tHeight=80,\n\tCallback=function()\n\t\t\n\tend,\n})',label="NewImageButton",desc="Nut anh"},
+	{trigger="S:NV",   insert='S:NewViewportFrame({Name="",Height=120})',label="NewViewportFrame",desc="Preview 3D instance"},
+	{trigger="S:NTB",  insert='S:NewTextBoxButton({\n\tName="",\n\tPlaceholderText="",\n\tButtonText="Submit",\n\tCallback=function(t)\n\t\t\n\tend,\n})',label="NewTextBoxButton",desc="TextBox + nut submit"},
+	{trigger="lP",     insert="game.Players.LocalPlayer",   label="LocalPlayer",    desc="Player dang choi"},
+	{trigger="char",   insert="game.Players.LocalPlayer.Character",label="Character",desc="Character cua LocalPlayer"},
+	{trigger="hrp",    insert='game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")',label="HRP",desc="HumanoidRootPart"},
+	{trigger="hum",    insert='game.Players.LocalPlayer.Character:FindFirstChild("Humanoid")',label="Humanoid",desc="Humanoid - WalkSpeed/Health"},
+	{trigger="cam",    insert="workspace.CurrentCamera",    label="Camera",         desc="Camera hien tai"},
+	{trigger="gPS",    insert='game:GetService("Players")', label="Players",        desc="Players service"},
+	{trigger="gRS",    insert='game:GetService("RunService")',label="RunService",   desc="RunService - Heartbeat"},
+	{trigger="gUIS",   insert='game:GetService("UserInputService")',label="UIS",   desc="UserInputService - phim/chuot"},
+	{trigger="gTS",    insert='game:GetService("TweenService")',label="TweenService",desc="TweenService - animation"},
+	{trigger=".Va",    insert=".Value",  label=".Value",  desc="Gia tri cua ValueBase"},
+	{trigger=".Pa",    insert=".Parent", label=".Parent", desc="Instance cha"},
+	{trigger=".Na",    insert=".Name",   label=".Name",   desc="Ten instance"},
+	{trigger="C3",     insert="Color3.fromRGB(",  label="Color3.fromRGB()",desc="Tao mau tu R,G,B (0-255)"},
+	{trigger="V3",     insert="Vector3.new(",     label="Vector3.new()",   desc="Tao vector 3D"},
+	{trigger="CF",     insert="CFrame.new(",      label="CFrame.new()",    desc="Tao CFrame"},
+	{trigger="U2",     insert="UDim2.new(",       label="UDim2.new()",     desc="UDim2(xS,xO,yS,yO)"},
+	{trigger="Ins",    insert="Instance.new(",    label="Instance.new()",  desc="Tao instance moi"},
+	{trigger="Ti",     insert="TweenInfo.new(",   label="TweenInfo.new()", desc="TweenInfo(time,style,dir,...)"},
+	{trigger="lstr",   insert='loadstring(game:HttpGet(""))()',label="loadstring+HttpGet",desc="Load script tu URL"},
 }
 
---------------------------------------------------------------------------------
+-- TEMPLATES
+local TEMPLATE_1 = 'local MyHub = loadstring(game:HttpGet(\'https://raw.githubusercontent.com/Anhvudz/Scripts/main/My%20hub%20script\'))()\n\nlocal Window = MyHub:CreateWindow({\n\tName = "My Hub",\n\tLoadingTitle = "Loading",\n\tLoadingSubtitle = "Please wait...",\n})\n\nlocal Tab1 = Window:NewTab({ Name = "Main" })\n\n-- Section 1: Buttons & Toggles\ndo\n\tlocal S = Tab1:NewSection({ Name = "Actions" })\n\n\tS:NewButton({\n\t\tName = "Button 1",\n\t\tCallback = function()\n\t\t\tprint("Button 1!")\n\t\tend,\n\t})\n\n\tS:NewButton({\n\t\tName = "Button 2",\n\t\tCallback = function()\n\t\t\tprint("Button 2!")\n\t\tend,\n\t})\n\n\tS:NewButton({\n\t\tName = "Button 3",\n\t\tCallback = function()\n\t\t\tprint("Button 3!")\n\t\tend,\n\t})\n\n\tS:NewButton({\n\t\tName = "Button 4",\n\t\tCallback = function()\n\t\t\tprint("Button 4!")\n\t\tend,\n\t})\n\n\tS:NewToggle({\n\t\tName = "Toggle 1",\n\t\tCurrentValue = false,\n\t\tFlag = "tgl1",\n\t\tCallback = function(v)\n\t\t\tprint("Toggle 1:", v)\n\t\tend,\n\t})\n\n\tS:NewToggle({\n\t\tName = "Toggle 2",\n\t\tCurrentValue = false,\n\t\tFlag = "tgl2",\n\t\tCallback = function(v)\n\t\t\tprint("Toggle 2:", v)\n\t\tend,\n\t})\nend\n\n-- Section 2: Images & Slider\ndo\n\tlocal S = Tab1:NewSection({ Name = "Media" })\n\n\tS:NewImageLabel({\n\t\tName = "Image 1",\n\t\tImageId = 4483362458,\n\t\tHeight = 80,\n\t})\n\n\tS:NewImageLabel({\n\t\tName = "Image 2",\n\t\tImageId = 107975654,\n\t\tHeight = 80,\n\t})\n\n\tS:NewSlider({\n\t\tName = "Slider",\n\t\tRange = {0, 100},\n\t\tCurrentValue = 50,\n\t\tFlag = "sld1",\n\t\tCallback = function(v)\n\t\t\tprint("Slider:", v)\n\t\tend,\n\t})\nend\n\n-- Section 3: Color & Labels\ndo\n\tlocal S = Tab1:NewSection({ Name = "Colors" })\n\n\tS:NewColorPicker({\n\t\tName = "Color 1",\n\t\tCurrentValue = Color3.fromRGB(255, 100, 50),\n\t\tFlag = "clr1",\n\t\tCallback = function(c)\n\t\t\tprint("Color:", c)\n\t\tend,\n\t})\n\n\tS:NewLabel({ Name = "Label 1 - Nhan viet text ngan tai day." })\n\tS:NewLabel({ Name = "Label 2 - Co the dung :SetText() de cap nhat." })\nend\n\n-- Section 4: Other Elements\ndo\n\tlocal S = Tab1:NewSection({ Name = "Others" })\n\n\tS:NewDropdown({\n\t\tName = "Dropdown",\n\t\tOptions = {"Option A", "Option B", "Option C"},\n\t\tCurrentOption = "Option A",\n\t\tFlag = "drp1",\n\t\tCallback = function(v)\n\t\t\tprint("Selected:", v)\n\t\tend,\n\t})\n\n\tS:NewKeybind({\n\t\tName = "Keybind",\n\t\tCurrentKeybind = Enum.KeyCode.K,\n\t\tFlag = "kb1",\n\t\tCallback = function(k)\n\t\t\tprint("Key:", k.Name)\n\t\tend,\n\t})\n\n\tlocal prog = S:NewProgressBar({ Name = "Progress", Max = 100 })\n\tprog:Set(50)\n\n\tS:NewInput({\n\t\tName = "Input",\n\t\tPlaceholderText = "Type here...",\n\t\tFlag = "inp1",\n\t\tCallback = function(text, enter)\n\t\t\tif enter then print("Input:", text) end\n\t\tend,\n\t})\n\n\tS:NewTextBoxButton({\n\t\tName = "Submit Box",\n\t\tPlaceholderText = "Enter text...",\n\t\tButtonText = "Submit",\n\t\tCallback = function(text)\n\t\t\tprint("Submitted:", text)\n\t\tend,\n\t})\nend'
+
+local TEMPLATES = {
+	{name="UI Template 1", desc="4 sections: Buttons/Toggles, Images/Slider,\nColorPicker/Labels, va cac element khac.", code=TEMPLATE_1},
+}
+
+-- AUTO-INDENT
+local function autoIndent(source)
+	local lines={}
+	for ln in (source.."\n"):gmatch("([^\n]*)\n") do table.insert(lines,ln) end
+	local out={}; local level=0
+	local function trim(s) return s:match("^%s*(.-)%s*$") end
+	for _,line in ipairs(lines) do
+		local t=trim(line)
+		local closes=t:match("^end%f[%A%z]") or t:match("^else%f[%A%z]") or
+		             t:match("^elseif%f[%A%z]") or t:match("^until%f[%A%z]")
+		if closes then level=math.max(0,level-1) end
+		table.insert(out, t~="" and string.rep("\t",level)..t or "")
+		if not t:match("^%-%-") then
+			local opens=(t:match("%f[%a]do%f[%A%z]") or t:match("then%s*$") or
+			             t:match("else%s*$") or t:match("^repeat%s*$") or
+			             t:match("function%s*%(") or t:match("function%s+%w"))
+			if opens and not closes and not t:match("%f[%a]end%f[%A%z]") then
+				level=level+1
+			end
+		end
+	end
+	return table.concat(out,"\n")
+end
+
+-- PARSE UI ELEMENTS from code (for live preview)
+local ELEMENT_DEFS={
+	{pat='NewTab%s*%({[^}]*Name%s*=%s*"([^"]*)"',       icon="TAB", color=Color3.fromRGB(55,145,230)},
+	{pat='NewSection%s*%({[^}]*Name%s*=%s*"([^"]*)"',   icon="SEC", color=Color3.fromRGB(80,80,110)},
+	{pat='NewButton%s*%({[^}]*Name%s*=%s*"([^"]*)"',    icon="BTN", color=Color3.fromRGB(55,145,230)},
+	{pat='NewToggle%s*%({[^}]*Name%s*=%s*"([^"]*)"',    icon="TOG", color=Color3.fromRGB(48,195,85)},
+	{pat='NewSlider%s*%({[^}]*Name%s*=%s*"([^"]*)"',    icon="SLD", color=Color3.fromRGB(245,135,40)},
+	{pat='NewDropdown%s*%({[^}]*Name%s*=%s*"([^"]*)"',  icon="DRP", color=Color3.fromRGB(160,90,255)},
+	{pat='NewColorPicker%s*%({[^}]*Name%s*=%s*"([^"]*)"',icon="CLR",color=Color3.fromRGB(255,100,130)},
+	{pat='NewLabel%s*%({[^}]*Name%s*=%s*"([^"]*)"',     icon="LBL", color=Color3.fromRGB(165,165,165)},
+	{pat='NewInput%s*%({[^}]*Name%s*=%s*"([^"]*)"',     icon="INP", color=Color3.fromRGB(200,170,30)},
+	{pat='NewKeybind%s*%({[^}]*Name%s*=%s*"([^"]*)"',   icon="KEY", color=Color3.fromRGB(100,200,255)},
+	{pat='NewProgressBar%s*%({[^}]*Name%s*=%s*"([^"]*)"',icon="PRG",color=Color3.fromRGB(65,195,85)},
+	{pat='NewImageLabel%s*%({[^}]*Name%s*=%s*"([^"]*)"',icon="IMG", color=Color3.fromRGB(255,180,50)},
+	{pat='NewImageButton%s*%({[^}]*Name%s*=%s*"([^"]*)"',icon="IMB",color=Color3.fromRGB(255,150,30)},
+	{pat='NewViewportFrame%s*%({[^}]*Name%s*=%s*"([^"]*)"',icon="VP",color=Color3.fromRGB(150,200,255)},
+}
+
+local function parseElements(code)
+	local elems={}
+	for _,def in ipairs(ELEMENT_DEFS) do
+		for name in code:gmatch(def.pat) do
+			table.insert(elems,{icon=def.icon,name=name,color=def.color})
+		end
+	end
+	return elems
+end
+
+-- GET ERROR LINE from loadstring error message
+local function getErrorLine(errMsg)
+	local s=tostring(errMsg)
+	local line=s:match(":(%d+):")
+	return line and tonumber(line) or nil
+end
+
 -- CODE EDITOR
---------------------------------------------------------------------------------
-local editorOpen = false
+local editorOpen=false
 
 local function openCodeEditor(preload)
 	if editorOpen then return end
-	editorOpen = true
+	editorOpen=true
 
-	-- Gộp built-in + user snippets.
-	local allSnippets = {}
+	local allSnippets={}
 	for _,s in ipairs(BASE_SNIPPETS) do table.insert(allSnippets,s) end
 	for _,s in ipairs(userSnippets) do table.insert(allSnippets,s) end
 
 	local edGui=Instance.new("ScreenGui"); edGui.Name="PotassiumEditor"
 	edGui.ResetOnSpawn=false; edGui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; edGui.Parent=exploitGui
 
-	-- Mobile-friendly size (nhỏ hơn, có thể drag).
-	local WIN_W,WIN_H=math.min(450,game:GetService("GuiService"):GetScreenResolution().X-20),math.min(380,game:GetService("GuiService"):GetScreenResolution().Y-40)
+	local screenRes=guiService:GetScreenResolution()
+	local WIN_W=math.min(620,screenRes.X-20)
+	local WIN_H=math.min(500,screenRes.Y-40)
+	local TB_H   = 30    -- title bar height
+	local TOOL_H = 32    -- toolbar height
+	local GUT_W  = 38    -- gutter width
+	local TMPL_W = 158   -- template panel width
+	local PREV_H = 80    -- live preview height
+	local CODE_W = WIN_W - GUT_W - TMPL_W
+	local CODE_H = WIN_H - TB_H - TOOL_H - PREV_H
 
+	-- Main window
 	local win=Instance.new("Frame"); win.AnchorPoint=Vector2.new(0.5,0.5)
 	win.Size=UDim2.new(0,0,0,0); win.Position=UDim2.new(0.5,0,0.5,0)
 	win.BackgroundColor3=Color3.fromRGB(14,14,18); win.BorderSizePixel=0; win.Parent=edGui
 	local wc=Instance.new("UICorner"); wc.CornerRadius=UDim.new(0,8); wc.Parent=win
 	local ws=Instance.new("UIStroke"); ws.Color=Color3.fromRGB(42,42,55); ws.Thickness=1; ws.Parent=win
+	local wSh=Instance.new("ImageLabel"); wSh.Size=UDim2.new(1,50,1,50); wSh.Position=UDim2.new(0,-25,0,-25)
+	wSh.BackgroundTransparency=1; wSh.Image="rbxassetid://1316045217"; wSh.ImageColor3=Color3.new(0,0,0)
+	wSh.ImageTransparency=0.52; wSh.ScaleType=Enum.ScaleType.Slice; wSh.SliceCenter=Rect.new(10,10,118,118)
+	wSh.ZIndex=win.ZIndex-1; wSh.Parent=win
 
-	local wShadow=Instance.new("ImageLabel"); wShadow.Size=UDim2.new(1,48,1,48); wShadow.Position=UDim2.new(0,-24,0,-24)
-	wShadow.BackgroundTransparency=1; wShadow.Image="rbxassetid://1316045217"; wShadow.ImageColor3=Color3.new(0,0,0)
-	wShadow.ImageTransparency=0.52; wShadow.ScaleType=Enum.ScaleType.Slice; wShadow.SliceCenter=Rect.new(10,10,118,118)
-	wShadow.ZIndex=win.ZIndex-1; wShadow.Parent=win
-
-	-- Title bar.
-	local tb=Instance.new("Frame"); tb.Size=UDim2.new(1,0,0,32); tb.BackgroundColor3=Color3.fromRGB(20,20,28); tb.BorderSizePixel=0; tb.Parent=win
+	-- Title bar
+	local tb=Instance.new("Frame"); tb.Size=UDim2.new(1,0,0,TB_H); tb.BackgroundColor3=Color3.fromRGB(20,20,28); tb.BorderSizePixel=0; tb.Parent=win
 	local tbc=Instance.new("UICorner"); tbc.CornerRadius=UDim.new(0,8); tbc.Parent=tb
 	local tbFix=Instance.new("Frame"); tbFix.Size=UDim2.new(1,0,0,8); tbFix.Position=UDim2.new(0,0,1,-8)
 	tbFix.BackgroundColor3=Color3.fromRGB(20,20,28); tbFix.BorderSizePixel=0; tbFix.Parent=tb
-
-	local tbLbl=Instance.new("TextLabel"); tbLbl.Size=UDim2.new(1,-80,1,0); tbLbl.Position=UDim2.new(0,12,0,0)
-	tbLbl.Text="Code Editor"; tbLbl.TextColor3=Color3.fromRGB(215,215,228); tbLbl.BackgroundTransparency=1
-	tbLbl.Font=Enum.Font.SourceSansBold; tbLbl.TextSize=13; tbLbl.TextXAlignment=Enum.TextXAlignment.Left; tbLbl.Parent=tb
+	local tbL=Instance.new("TextLabel"); tbL.Size=UDim2.new(1,-80,1,0); tbL.Position=UDim2.new(0,12,0,0)
+	tbL.Text="Code Editor — Potassium Hub"; tbL.TextColor3=Color3.fromRGB(215,215,228)
+	tbL.BackgroundTransparency=1; tbL.Font=Enum.Font.SourceSansBold; tbL.TextSize=13
+	tbL.TextXAlignment=Enum.TextXAlignment.Left; tbL.Parent=tb
 
 	local closeBtn=Instance.new("TextButton"); closeBtn.Size=UDim2.new(0,24,0,20); closeBtn.Position=UDim2.new(1,-28,0.5,-10)
 	closeBtn.Text="X"; closeBtn.TextColor3=Color3.new(1,1,1); closeBtn.BackgroundColor3=Color3.fromRGB(185,42,42)
 	closeBtn.Font=Enum.Font.SourceSansBold; closeBtn.TextSize=12; closeBtn.BorderSizePixel=0; closeBtn.Parent=tb
 	local cbc=Instance.new("UICorner"); cbc.CornerRadius=UDim.new(0,4); cbc.Parent=closeBtn
-
 	closeBtn.MouseButton1Click:Connect(function()
 		editorOpen=false
 		tweenService:Create(win,TweenInfo.new(0.22,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Size=UDim2.new(0,0,0,0)}):Play()
 		task.wait(0.25); edGui:Destroy()
 	end)
 
-	-- Draggable.
+	-- Drag
 	do
 		local drag=false; local sx,sy,sp; local mc,rc
 		tb.InputBegan:Connect(function(i)
@@ -213,48 +255,210 @@ local function openCodeEditor(preload)
 		end)
 	end
 
-	-- Gutter (số dòng).
-	local gutter=Instance.new("ScrollingFrame"); gutter.Size=UDim2.new(0,38,1,-64); gutter.Position=UDim2.new(0,0,0,32)
-	gutter.BackgroundColor3=Color3.fromRGB(18,18,24); gutter.BorderSizePixel=0; gutter.ScrollBarThickness=0
-	gutter.ScrollingEnabled=false; gutter.CanvasSize=UDim2.new(0,0,0,0); gutter.Parent=win
+	-- Gutter (line numbers, error highlight)
+	local gutter=Instance.new("ScrollingFrame")
+	gutter.Size=UDim2.new(0,GUT_W,0,CODE_H); gutter.Position=UDim2.new(0,0,0,TB_H)
+	gutter.BackgroundColor3=Color3.fromRGB(18,18,24); gutter.BorderSizePixel=0
+	gutter.ScrollBarThickness=0; gutter.ScrollingEnabled=false; gutter.CanvasSize=UDim2.new(0,0,0,0); gutter.Parent=win
 
-	-- Code scroll.
-	local codeScroll=Instance.new("ScrollingFrame"); codeScroll.Size=UDim2.new(1,-38,1,-64); codeScroll.Position=UDim2.new(0,38,0,32)
-	codeScroll.BackgroundColor3=Color3.fromRGB(16,16,22); codeScroll.BorderSizePixel=0; codeScroll.ScrollBarThickness=4
-	codeScroll.ScrollBarImageColor3=Color3.fromRGB(55,55,75); codeScroll.CanvasSize=UDim2.new(0,0,0,0); codeScroll.Parent=win
+	local gutterLine=Instance.new("Frame"); gutterLine.Size=UDim2.new(0,1,1,0); gutterLine.Position=UDim2.new(1,-1,0,0)
+	gutterLine.BackgroundColor3=Color3.fromRGB(35,35,48); gutterLine.BorderSizePixel=0; gutterLine.Parent=gutter
 
-	local DEFAULT_CODE = 'local MyHub = loadstring(game:HttpGet(\'https://raw.githubusercontent.com/Anhvudz/Scripts/main/My%20hub%20script\'))()\n-- ^ Bạn có thể xoá dòng này nếu MyHub đã được load sẵn.\n-- Thêm MyHub: local MyHub = loadfile("MyHub.lua")()\n\n'
+	-- Code area
+	local codeScroll=Instance.new("ScrollingFrame")
+	codeScroll.Size=UDim2.new(0,CODE_W,0,CODE_H); codeScroll.Position=UDim2.new(0,GUT_W,0,TB_H)
+	codeScroll.BackgroundColor3=Color3.fromRGB(16,16,22); codeScroll.BorderSizePixel=0
+	codeScroll.ScrollBarThickness=4; codeScroll.ScrollBarImageColor3=Color3.fromRGB(55,55,75)
+	codeScroll.CanvasSize=UDim2.new(0,0,0,0); codeScroll.Parent=win
 
+	local DEFAULT_CODE='local MyHub = loadstring(game:HttpGet(\'https://raw.githubusercontent.com/Anhvudz/Scripts/main/My%20hub%20script\'))()\n-- ^ Co the xoa dong nay neu MyHub da duoc load san\n-- Them MyHub tu file: local MyHub = loadfile("MyHub.lua")()\n\n'
 	local codeBox=Instance.new("TextBox"); codeBox.Size=UDim2.new(1,-10,1,-8); codeBox.Position=UDim2.new(0,5,0,4)
 	codeBox.MultiLine=true; codeBox.ClearTextOnFocus=false; codeBox.Text=preload or DEFAULT_CODE
 	codeBox.TextColor3=Color3.fromRGB(210,210,228); codeBox.BackgroundTransparency=1
-	codeBox.Font=Enum.Font.Code; codeBox.TextSize=13; codeBox.TextXAlignment=Enum.TextXAlignment.Left
-	codeBox.TextYAlignment=Enum.TextYAlignment.Top; codeBox.Parent=codeScroll
+	codeBox.Font=Enum.Font.Code; codeBox.TextSize=13
+	codeBox.TextXAlignment=Enum.TextXAlignment.Left; codeBox.TextYAlignment=Enum.TextYAlignment.Top; codeBox.Parent=codeScroll
+
+	-- Error state
+	local currentErrorLine=nil
+
+	local function updateGutter(errLine)
+		currentErrorLine=errLine
+		gutter:ClearAllChildren()
+		-- Re-add separator line
+		local gl=Instance.new("Frame"); gl.Size=UDim2.new(0,1,1,0); gl.Position=UDim2.new(1,-1,0,0)
+		gl.BackgroundColor3=Color3.fromRGB(35,35,48); gl.BorderSizePixel=0; gl.Parent=gutter
+		local lines=select(2,codeBox.Text:gsub("\n","\n"))+1
+		local LH=18
+		for i=1,lines do
+			local isErr=(errLine and i==errLine)
+			local ln=Instance.new("TextLabel"); ln.Size=UDim2.new(1,-4,0,LH); ln.Position=UDim2.new(0,0,0,(i-1)*LH)
+			ln.Text=tostring(i); ln.BackgroundTransparency=isErr and 0 or 1
+			ln.BackgroundColor3=isErr and Color3.fromRGB(120,20,20) or Color3.new(0,0,0)
+			ln.TextColor3=isErr and Color3.fromRGB(255,80,80) or Color3.fromRGB(68,68,96)
+			ln.Font=Enum.Font.Code; ln.TextSize=12; ln.TextXAlignment=Enum.TextXAlignment.Right; ln.Parent=gutter
+			if isErr then
+				-- Red side bar on error line
+				local errBar=Instance.new("Frame"); errBar.Size=UDim2.new(0,2,1,0); errBar.Position=UDim2.new(0,0,0,0)
+				errBar.BackgroundColor3=Color3.fromRGB(255,60,60); errBar.BorderSizePixel=0; errBar.Parent=ln
+			end
+		end
+		gutter.CanvasSize=UDim2.new(0,0,0,lines*LH)
+	end
 
 	local function updateLayout()
 		local lines=select(2,codeBox.Text:gsub("\n","\n"))+1
-		local lineH=18
-		local h=math.max(lines*lineH,codeScroll.AbsoluteSize.Y-8)
+		local LH=18
+		local h=math.max(lines*LH,codeScroll.AbsoluteSize.Y-8)
 		codeBox.Size=UDim2.new(1,-10,0,h); codeScroll.CanvasSize=UDim2.new(0,0,0,h+8)
-		gutter:ClearAllChildren()
-		for i=1,lines do
-			local ln=Instance.new("TextLabel"); ln.Size=UDim2.new(1,-5,0,lineH); ln.Position=UDim2.new(0,0,0,(i-1)*lineH)
-			ln.Text=tostring(i); ln.TextColor3=Color3.fromRGB(68,68,96); ln.BackgroundTransparency=1
-			ln.Font=Enum.Font.Code; ln.TextSize=12; ln.TextXAlignment=Enum.TextXAlignment.Right; ln.Parent=gutter
-		end
-		gutter.CanvasSize=UDim2.new(0,0,0,lines*lineH)
+		updateGutter(currentErrorLine)
 	end
 	codeBox:GetPropertyChangedSignal("Text"):Connect(updateLayout)
 	task.defer(updateLayout)
 
-	-- Suggestion panel.
-	local suggFrame=Instance.new("Frame"); suggFrame.Size=UDim2.new(0,320,0,0); suggFrame.Position=UDim2.new(0,38,0,32)
-	suggFrame.BackgroundColor3=Color3.fromRGB(20,20,30); suggFrame.BorderSizePixel=0; suggFrame.Visible=false; suggFrame.ZIndex=20; suggFrame.Parent=win
+	-- Auto-indent on FocusLost
+	codeBox.FocusLost:Connect(function()
+		local formatted=autoIndent(codeBox.Text)
+		if formatted~=codeBox.Text then codeBox.Text=formatted end
+		-- Also check syntax to highlight error
+		local fn,err=loadstring(codeBox.Text)
+		if fn then updateGutter(nil)
+		else updateGutter(getErrorLine(err)) end
+	end)
+
+	-- Template panel (right side)
+	local tmplPanel=Instance.new("ScrollingFrame")
+	tmplPanel.Size=UDim2.new(0,TMPL_W,1,-TOOL_H)
+	tmplPanel.Position=UDim2.new(0,GUT_W+CODE_W,0,TB_H)
+	tmplPanel.BackgroundColor3=Color3.fromRGB(12,12,18); tmplPanel.BorderSizePixel=0
+	tmplPanel.ScrollBarThickness=3; tmplPanel.ScrollBarImageColor3=Color3.fromRGB(50,50,70)
+	tmplPanel.CanvasSize=UDim2.new(0,0,0,0); tmplPanel.Parent=win
+
+	local tmplHeader=Instance.new("TextLabel"); tmplHeader.Size=UDim2.new(1,0,0,24); tmplHeader.Position=UDim2.new(0,0,0,0)
+	tmplHeader.Text="Templates"; tmplHeader.TextColor3=Color3.fromRGB(90,90,120); tmplHeader.BackgroundColor3=Color3.fromRGB(16,16,24)
+	tmplHeader.BorderSizePixel=0; tmplHeader.Font=Enum.Font.SourceSansBold; tmplHeader.TextSize=10; tmplHeader.Parent=tmplPanel
+
+	local tmplSep=Instance.new("Frame"); tmplSep.Size=UDim2.new(1,0,0,1); tmplSep.Position=UDim2.new(0,0,0,24)
+	tmplSep.BackgroundColor3=Color3.fromRGB(35,35,50); tmplSep.BorderSizePixel=0; tmplSep.Parent=tmplPanel
+
+	local tmplY=28
+	for _,tmpl in ipairs(TEMPLATES) do
+		local card=Instance.new("Frame"); card.Size=UDim2.new(1,-8,0,85); card.Position=UDim2.new(0,4,0,tmplY)
+		card.BackgroundColor3=Color3.fromRGB(20,20,30); card.BorderSizePixel=0; card.Parent=tmplPanel
+		local cc=Instance.new("UICorner"); cc.CornerRadius=UDim.new(0,5); cc.Parent=card
+		local cs=Instance.new("UIStroke"); cs.Color=Color3.fromRGB(40,40,60); cs.Thickness=1; cs.Parent=card
+
+		local nameL=Instance.new("TextLabel"); nameL.Size=UDim2.new(1,-8,0,18); nameL.Position=UDim2.new(0,6,0,5)
+		nameL.Text=tmpl.name; nameL.TextColor3=Color3.fromRGB(200,200,220); nameL.BackgroundTransparency=1
+		nameL.Font=Enum.Font.SourceSansBold; nameL.TextSize=11; nameL.TextXAlignment=Enum.TextXAlignment.Left; nameL.Parent=card
+
+		local descL=Instance.new("TextLabel"); descL.Size=UDim2.new(1,-8,0,32); descL.Position=UDim2.new(0,6,0,22)
+		descL.Text=tmpl.desc; descL.TextColor3=Color3.fromRGB(110,110,145); descL.BackgroundTransparency=1
+		descL.Font=Enum.Font.SourceSans; descL.TextSize=10; descL.TextWrapped=true
+		descL.TextXAlignment=Enum.TextXAlignment.Left; descL.TextYAlignment=Enum.TextYAlignment.Top; descL.Parent=card
+
+		local addBtn=Instance.new("TextButton"); addBtn.Size=UDim2.new(1,-12,0,22); addBtn.Position=UDim2.new(0,6,1,-26)
+		addBtn.Text="+ Add to Code"; addBtn.TextColor3=Color3.new(1,1,1); addBtn.BackgroundColor3=Color3.fromRGB(50,85,165)
+		addBtn.Font=Enum.Font.SourceSansBold; addBtn.TextSize=11; addBtn.BorderSizePixel=0; addBtn.Parent=card
+		local abc=Instance.new("UICorner"); abc.CornerRadius=UDim.new(0,4); abc.Parent=addBtn
+		addBtn.MouseEnter:Connect(function() tweenService:Create(addBtn,TweenInfo.new(0.1),{BackgroundColor3=Color3.fromRGB(65,105,200)}):Play() end)
+		addBtn.MouseLeave:Connect(function() tweenService:Create(addBtn,TweenInfo.new(0.1),{BackgroundColor3=Color3.fromRGB(50,85,165)}):Play() end)
+
+		local tCode=tmpl.code
+		addBtn.MouseButton1Click:Connect(function()
+			codeBox.Text=codeBox.Text.."\n\n"..tCode
+			MyHub:Notify("Template","Added: "..tmpl.name,3)
+		end)
+
+		tmplY=tmplY+91
+	end
+	tmplPanel.CanvasSize=UDim2.new(0,0,0,tmplY+8)
+
+	-- Live preview panel (shows parsed elements)
+	local prevFrame=Instance.new("ScrollingFrame")
+	prevFrame.Size=UDim2.new(1,0,0,PREV_H); prevFrame.Position=UDim2.new(0,0,0,TB_H+CODE_H)
+	prevFrame.BackgroundColor3=Color3.fromRGB(10,10,15); prevFrame.BorderSizePixel=0
+	prevFrame.ScrollBarThickness=3; prevFrame.ScrollingDirection=Enum.ScrollingDirection.X
+	prevFrame.CanvasSize=UDim2.new(0,0,0,0); prevFrame.Parent=win
+
+	local prevHeader=Instance.new("Frame"); prevHeader.Size=UDim2.new(0,0,1,0); prevHeader.Position=UDim2.new(0,0,0,0)
+	prevHeader.BackgroundTransparency=1; prevHeader.Parent=prevFrame
+
+	local prevSep=Instance.new("Frame"); prevSep.Size=UDim2.new(1,0,0,1)
+	prevSep.BackgroundColor3=Color3.fromRGB(30,30,45); prevSep.BorderSizePixel=0; prevSep.Parent=prevFrame
+
+	local prevLabel=Instance.new("TextLabel"); prevLabel.Size=UDim2.new(0,120,0,18); prevLabel.Position=UDim2.new(0,6,0,2)
+	prevLabel.Text="UI Preview (elements)"; prevLabel.TextColor3=Color3.fromRGB(65,65,95); prevLabel.BackgroundTransparency=1
+	prevLabel.Font=Enum.Font.SourceSansBold; prevLabel.TextSize=9; prevLabel.TextXAlignment=Enum.TextXAlignment.Left; prevLabel.Parent=prevFrame
+
+	local prevStatus=Instance.new("TextLabel"); prevStatus.Size=UDim2.new(0,80,0,18); prevStatus.Position=UDim2.new(1,-84,0,2)
+	prevStatus.Text=""; prevStatus.TextColor3=Color3.fromRGB(48,195,85); prevStatus.BackgroundTransparency=1
+	prevStatus.Font=Enum.Font.SourceSans; prevStatus.TextSize=9; prevStatus.TextXAlignment=Enum.TextXAlignment.Right; prevStatus.Parent=prevFrame
+
+	-- Badge containers for element preview
+	local badgeRow=Instance.new("Frame"); badgeRow.Size=UDim2.new(0,0,0,PREV_H-24); badgeRow.Position=UDim2.new(0,0,0,22)
+	badgeRow.BackgroundTransparency=1; badgeRow.Parent=prevFrame
+
+	local function updatePreview()
+		badgeRow:ClearAllChildren()
+		local fn,err=loadstring(codeBox.Text)
+		if not fn then
+			prevStatus.Text="Syntax Error"; prevStatus.TextColor3=Color3.fromRGB(210,50,50)
+			updateGutter(getErrorLine(err)); return
+		end
+		updateGutter(nil)
+		prevStatus.Text="No errors"; prevStatus.TextColor3=Color3.fromRGB(48,195,85)
+
+		local elems=parseElements(codeBox.Text)
+		local xOff=6
+		for _,el in ipairs(elems) do
+			local badge=Instance.new("Frame"); badge.Size=UDim2.new(0,math.max(60,#el.name*6+28),0,46)
+			badge.Position=UDim2.new(0,xOff,0,2); badge.BackgroundColor3=Color3.fromRGB(20,20,30)
+			badge.BorderSizePixel=0; badge.Parent=badgeRow
+			local bcc=Instance.new("UICorner"); bcc.CornerRadius=UDim.new(0,4); bcc.Parent=badge
+			local topBar=Instance.new("Frame"); topBar.Size=UDim2.new(1,0,0,3)
+			topBar.BackgroundColor3=el.color; topBar.BorderSizePixel=0; topBar.Parent=badge
+			local biconL=Instance.new("TextLabel"); biconL.Size=UDim2.new(1,0,0,18); biconL.Position=UDim2.new(0,0,0,3)
+			biconL.Text=el.icon; biconL.TextColor3=el.color; biconL.BackgroundTransparency=1
+			biconL.Font=Enum.Font.SourceSansBold; biconL.TextSize=9; biconL.TextXAlignment=Enum.TextXAlignment.Center; biconL.Parent=badge
+			local bnameL=Instance.new("TextLabel"); bnameL.Size=UDim2.new(1,-4,0,22); bnameL.Position=UDim2.new(0,2,0,20)
+			bnameL.Text=el.name; bnameL.TextColor3=Color3.fromRGB(190,190,210); bnameL.BackgroundTransparency=1
+			bnameL.Font=Enum.Font.SourceSans; bnameL.TextSize=10; bnameL.TextXAlignment=Enum.TextXAlignment.Center
+			bnameL.TextTruncate=Enum.TextTruncate.AtEnd; bnameL.Parent=badge
+			xOff=xOff+badge.Size.X.Offset+5
+		end
+
+		if #elems==0 then
+			local emptyL=Instance.new("TextLabel"); emptyL.Size=UDim2.new(0,200,1,0); emptyL.Position=UDim2.new(0,6,0,0)
+			emptyL.Text="No UI elements detected yet..."; emptyL.TextColor3=Color3.fromRGB(55,55,80)
+			emptyL.BackgroundTransparency=1; emptyL.Font=Enum.Font.SourceSansItalic; emptyL.TextSize=11; emptyL.Parent=badgeRow
+			prevFrame.CanvasSize=UDim2.new(0,0,0,0); return
+		end
+		prevFrame.CanvasSize=UDim2.new(0,xOff+6,0,0)
+		badgeRow.Size=UDim2.new(0,xOff+6,0,PREV_H-24)
+	end
+
+	-- Debounced preview update
+	local previewDebounce=nil
+	codeBox:GetPropertyChangedSignal("Text"):Connect(function()
+		if previewDebounce then task.cancel(previewDebounce) end
+		previewDebounce=task.delay(0.8,updatePreview)
+	end)
+	task.defer(updatePreview)
+
+	-- Suggestion panel (BELOW the text, not above)
+	local suggOuter=Instance.new("Frame")
+	suggOuter.Size=UDim2.new(0,CODE_W+GUT_W,0,0)
+	suggOuter.Position=UDim2.new(0,0,0,TB_H+CODE_H-1) -- just below code area
+	suggOuter.BackgroundTransparency=1; suggOuter.ZIndex=30; suggOuter.Parent=win
+
+	local suggFrame=Instance.new("Frame"); suggFrame.Size=UDim2.new(1,0,0,0)
+	suggFrame.BackgroundColor3=Color3.fromRGB(18,18,30); suggFrame.BorderSizePixel=0
+	suggFrame.Visible=false; suggFrame.ZIndex=31; suggFrame.Parent=suggOuter
 	local sfc=Instance.new("UICorner"); sfc.CornerRadius=UDim.new(0,5); sfc.Parent=suggFrame
-	local sfs=Instance.new("UIStroke"); sfs.Color=Color3.fromRGB(50,50,72); sfs.Thickness=1; sfs.Parent=suggFrame
+	local sfs=Instance.new("UIStroke"); sfs.Color=Color3.fromRGB(48,48,72); sfs.Thickness=1; sfs.Parent=suggFrame
 
 	local lastWord=""
-	local function hideSugg() suggFrame.Visible=false end
+	local function hideSugg() suggFrame.Visible=false; suggOuter.Size=UDim2.new(0,CODE_W+GUT_W,0,0) end
 
 	local function showSugg(word)
 		lastWord=word
@@ -263,38 +467,41 @@ local function openCodeEditor(preload)
 		for _,s in ipairs(allSnippets) do
 			local t=s.trigger
 			if t:sub(1,#word)==word or (#word>=#t and word:sub(1,#t)==t) then
-				table.insert(matches,s); if #matches>=7 then break end
+				table.insert(matches,s); if #matches>=6 then break end
 			end
 		end
 		if #matches==0 then hideSugg(); return end
 
-		for _,c in ipairs(suggFrame:GetChildren()) do if c:IsA("TextButton") or c:IsA("Frame") then c:Destroy() end end
+		for _,c in ipairs(suggFrame:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
 
-		local IH=30
+		local IH=32
 		for i,m in ipairs(matches) do
 			local isFirst=i==1
 			local row=Instance.new("TextButton"); row.Size=UDim2.new(1,0,0,IH); row.Position=UDim2.new(0,0,0,(i-1)*IH)
-			row.BackgroundColor3=isFirst and Color3.fromRGB(32,32,52) or Color3.fromRGB(20,20,30)
-			row.BorderSizePixel=0; row.Text=""; row.ZIndex=21; row.Parent=suggFrame
-			if isFirst then local rc=Instance.new("UICorner"); rc.CornerRadius=UDim.new(0,5); rc.Parent=row end
+			row.BackgroundColor3=isFirst and Color3.fromRGB(28,28,48) or Color3.fromRGB(18,18,30)
+			row.BorderSizePixel=0; row.Text=""; row.ZIndex=32; row.Parent=suggFrame
+			if isFirst then local rc=Instance.new("UICorner"); rc.CornerRadius=UDim.new(0,4); rc.Parent=row end
 
-			local badge=Instance.new("TextLabel"); badge.Size=UDim2.new(0,80,1,0); badge.Position=UDim2.new(0,6,0,0)
-			badge.Text=m.trigger; badge.TextColor3=Color3.fromRGB(100,175,255); badge.BackgroundTransparency=1
-			badge.Font=Enum.Font.Code; badge.TextSize=12; badge.TextXAlignment=Enum.TextXAlignment.Left; badge.ZIndex=22; badge.Parent=row
+			-- Trigger
+			local trigL=Instance.new("TextLabel"); trigL.Size=UDim2.new(0,72,1,0); trigL.Position=UDim2.new(0,8,0,0)
+			trigL.Text=m.trigger; trigL.TextColor3=Color3.fromRGB(100,175,255); trigL.BackgroundTransparency=1
+			trigL.Font=Enum.Font.Code; trigL.TextSize=12; trigL.TextXAlignment=Enum.TextXAlignment.Left; trigL.ZIndex=33; trigL.Parent=row
 
-			local nameL=Instance.new("TextLabel"); nameL.Size=UDim2.new(0,100,1,0); nameL.Position=UDim2.new(0,88,0,0)
-			nameL.Text=m.label; nameL.TextColor3=Color3.fromRGB(190,190,210); nameL.BackgroundTransparency=1
-			nameL.Font=Enum.Font.SourceSans; nameL.TextSize=12; nameL.TextXAlignment=Enum.TextXAlignment.Left; nameL.ZIndex=22; nameL.Parent=row
+			-- Label
+			local nameL=Instance.new("TextLabel"); nameL.Size=UDim2.new(0,90,1,0); nameL.Position=UDim2.new(0,82,0,0)
+			nameL.Text=m.label; nameL.TextColor3=Color3.fromRGB(190,190,212); nameL.BackgroundTransparency=1
+			nameL.Font=Enum.Font.SourceSans; nameL.TextSize=12; nameL.TextXAlignment=Enum.TextXAlignment.Left; nameL.ZIndex=33; nameL.Parent=row
 
+			-- Description (small, grey)
 			if m.desc then
-				local descL=Instance.new("TextLabel"); descL.Size=UDim2.new(1,-200,1,0); descL.Position=UDim2.new(0,196,0,0)
-				descL.Text=m.desc; descL.TextColor3=Color3.fromRGB(110,110,140); descL.BackgroundTransparency=1
+				local descL=Instance.new("TextLabel"); descL.Size=UDim2.new(1,-180,1,0); descL.Position=UDim2.new(0,178,0,0)
+				descL.Text=m.desc; descL.TextColor3=Color3.fromRGB(90,90,120); descL.BackgroundTransparency=1
 				descL.Font=Enum.Font.SourceSans; descL.TextSize=10; descL.TextXAlignment=Enum.TextXAlignment.Left
-				descL.TextTruncate=Enum.TextTruncate.AtEnd; descL.ZIndex=22; descL.Parent=row
+				descL.TextTruncate=Enum.TextTruncate.AtEnd; descL.ZIndex=33; descL.Parent=row
 			end
 
-			row.MouseEnter:Connect(function() tweenService:Create(row,TweenInfo.new(0.08),{BackgroundColor3=Color3.fromRGB(38,38,62)}):Play() end)
-			row.MouseLeave:Connect(function() tweenService:Create(row,TweenInfo.new(0.08),{BackgroundColor3=isFirst and Color3.fromRGB(32,32,52) or Color3.fromRGB(20,20,30)}):Play() end)
+			row.MouseEnter:Connect(function() tweenService:Create(row,TweenInfo.new(0.08),{BackgroundColor3=Color3.fromRGB(34,34,58)}):Play() end)
+			row.MouseLeave:Connect(function() tweenService:Create(row,TweenInfo.new(0.08),{BackgroundColor3=isFirst and Color3.fromRGB(28,28,48) or Color3.fromRGB(18,18,30)}):Play() end)
 
 			local ins=m.insert
 			local function accept()
@@ -305,10 +512,15 @@ local function openCodeEditor(preload)
 			row.MouseButton1Click:Connect(accept)
 		end
 
-		suggFrame.Size=UDim2.new(0,320,0,#matches*IH); suggFrame.Visible=true
+		local totalH=#matches*IH
+		suggFrame.Size=UDim2.new(1,0,0,totalH)
+		suggOuter.Size=UDim2.new(0,CODE_W+GUT_W,0,totalH)
+		-- Move suggOuter UP so it appears above the preview (above CODE_H bottom)
+		suggOuter.Position=UDim2.new(0,0,0,TB_H+CODE_H-totalH)
+		suggFrame.Visible=true
 	end
 
-	-- Debounced autocomplete + Enter key accept.
+	-- Debounced autocomplete
 	local debounce=nil
 	codeBox:GetPropertyChangedSignal("Text"):Connect(function()
 		if debounce then task.cancel(debounce) end
@@ -317,61 +529,77 @@ local function openCodeEditor(preload)
 		end)
 	end)
 
-	-- Enter key: accept top suggestion if suggestion panel visible.
+	-- Enter to accept, Escape to close
 	userInput.InputBegan:Connect(function(i,gp)
 		if gp then return end
 		if i.KeyCode==Enum.KeyCode.Return and suggFrame.Visible then
-			local firstRow=nil
 			for _,c in ipairs(suggFrame:GetChildren()) do
-				if c:IsA("TextButton") and c.Position==UDim2.new(0,0,0,0) then firstRow=c; break end
+				if c:IsA("TextButton") and c.Position==UDim2.new(0,0,0,0) then
+					c.MouseButton1Click:Fire(); break
+				end
 			end
-			if firstRow then firstRow.MouseButton1Click:Fire() end
 		end
 		if i.KeyCode==Enum.KeyCode.Escape then hideSugg() end
 	end)
 
-	-- Toolbar.
-	local toolbar=Instance.new("Frame"); toolbar.Size=UDim2.new(1,0,0,32); toolbar.Position=UDim2.new(0,0,1,-32)
-	toolbar.BackgroundColor3=Color3.fromRGB(18,18,26); toolbar.BorderSizePixel=0; toolbar.Parent=win
+	-- Toolbar
+	local toolbar=Instance.new("Frame"); toolbar.Size=UDim2.new(1,0,0,TOOL_H); toolbar.Position=UDim2.new(0,0,1,-TOOL_H)
+	toolbar.BackgroundColor3=Color3.fromRGB(16,16,24); toolbar.BorderSizePixel=0; toolbar.Parent=win
 	local tc=Instance.new("UICorner"); tc.CornerRadius=UDim.new(0,8); tc.Parent=toolbar
-	local tbfix2=Instance.new("Frame"); tbfix2.Size=UDim2.new(1,0,0,8)
-	tbfix2.BackgroundColor3=Color3.fromRGB(18,18,26); tbfix2.BorderSizePixel=0; tbfix2.Parent=toolbar
-	local topL=Instance.new("Frame"); topL.Size=UDim2.new(1,0,0,1); topL.BackgroundColor3=Color3.fromRGB(35,35,48); topL.BorderSizePixel=0; topL.Parent=toolbar
+	local tcFix=Instance.new("Frame"); tcFix.Size=UDim2.new(1,0,0,8)
+	tcFix.BackgroundColor3=Color3.fromRGB(16,16,24); tcFix.BorderSizePixel=0; tcFix.Parent=toolbar
+	local topL=Instance.new("Frame"); topL.Size=UDim2.new(1,0,0,1); topL.BackgroundColor3=Color3.fromRGB(32,32,45); topL.BorderSizePixel=0; topL.Parent=toolbar
 
-	local statusLbl=Instance.new("TextLabel"); statusLbl.Size=UDim2.new(0,150,1,0); statusLbl.Position=UDim2.new(1,-154,0,0)
-	statusLbl.Text="Ready"; statusLbl.TextColor3=Color3.fromRGB(65,65,90); statusLbl.BackgroundTransparency=1
+	local statusLbl=Instance.new("TextLabel"); statusLbl.Size=UDim2.new(0,130,1,0); statusLbl.Position=UDim2.new(1,-134,0,0)
+	statusLbl.Text="Ready"; statusLbl.TextColor3=Color3.fromRGB(60,60,85); statusLbl.BackgroundTransparency=1
 	statusLbl.Font=Enum.Font.SourceSans; statusLbl.TextSize=11; statusLbl.TextXAlignment=Enum.TextXAlignment.Right; statusLbl.ZIndex=6; statusLbl.Parent=toolbar
 
 	local function setStatus(msg,color)
-		statusLbl.Text=msg; tweenService:Create(statusLbl,TweenInfo.new(0.12),{TextColor3=color or Color3.fromRGB(65,65,90)}):Play()
+		statusLbl.Text=msg; tweenService:Create(statusLbl,TweenInfo.new(0.12),{TextColor3=color or Color3.fromRGB(60,60,85)}):Play()
 	end
 
-	local function mkToolBtn(text,bgColor,xOff,w)
-		local btn=Instance.new("TextButton"); btn.Size=UDim2.new(0,w or 72,0,22); btn.Position=UDim2.new(0,xOff,0.5,-11)
-		btn.Text=text; btn.TextColor3=Color3.new(1,1,1); btn.BackgroundColor3=bgColor
+	local function mkTBtn(text,bgC,xOff,w)
+		local btn=Instance.new("TextButton"); btn.Size=UDim2.new(0,w or 65,0,22); btn.Position=UDim2.new(0,xOff,0.5,-11)
+		btn.Text=text; btn.TextColor3=Color3.new(1,1,1); btn.BackgroundColor3=bgC
 		btn.Font=Enum.Font.SourceSansBold; btn.TextSize=11; btn.BorderSizePixel=0; btn.ZIndex=6; btn.Parent=toolbar
 		local bc=Instance.new("UICorner"); bc.CornerRadius=UDim.new(0,4); bc.Parent=btn
-		btn.MouseEnter:Connect(function() tweenService:Create(btn,TweenInfo.new(0.1),{BackgroundColor3=bgColor:Lerp(Color3.new(1,1,1),0.12)}):Play() end)
-		btn.MouseLeave:Connect(function() tweenService:Create(btn,TweenInfo.new(0.1),{BackgroundColor3=bgColor}):Play() end)
+		btn.MouseEnter:Connect(function() tweenService:Create(btn,TweenInfo.new(0.1),{BackgroundColor3=bgC:Lerp(Color3.new(1,1,1),0.12)}):Play() end)
+		btn.MouseLeave:Connect(function() tweenService:Create(btn,TweenInfo.new(0.1),{BackgroundColor3=bgC}):Play() end)
 		return btn
 	end
 
-	local runBtn   =mkToolBtn("Run",    Color3.fromRGB(40,165,48),  6,60)
-	local checkBtn =mkToolBtn("Check",  Color3.fromRGB(48,130,220), 70,60)
-	local copyBtn  =mkToolBtn("Copy",   Color3.fromRGB(70,70,95),   134,55)
-	local saveBtn  =mkToolBtn("Save",   Color3.fromRGB(88,60,170),  193,55)
-	local clearBtn =mkToolBtn("Clear",  Color3.fromRGB(148,38,38),  252,55)
+	local runBtn    =mkTBtn("Run",    Color3.fromRGB(38,162,46),  6,  55)
+	local checkBtn  =mkTBtn("Check",  Color3.fromRGB(45,126,215), 65, 58)
+	local fmtBtn    =mkTBtn("Format", Color3.fromRGB(80,80,110),  127,60)
+	local copyBtn   =mkTBtn("Copy",   Color3.fromRGB(65,65,90),   191,55)
+	local saveBtn   =mkTBtn("Save",   Color3.fromRGB(85,58,168),  250,55)
+	local clearBtn  =mkTBtn("Clear",  Color3.fromRGB(145,36,36),  309,55)
 
 	runBtn.MouseButton1Click:Connect(function()
-		hideSugg(); local fn,err=loadstring(codeBox.Text)
-		if fn then task.spawn(fn); setStatus("Running...",Color3.fromRGB(48,195,85)); MyHub:Notify("Code","Executed!",3)
-		else local e=tostring(err); setStatus(e:sub(1,42),Color3.fromRGB(210,50,50)); MyHub:Notify("Syntax Error",e:sub(1,120),6) end
+		hideSugg()
+		local fn,err=loadstring(codeBox.Text)
+		if fn then
+			task.spawn(fn); setStatus("Running...",Color3.fromRGB(48,195,85)); MyHub:Notify("Code","Executed!",3)
+		else
+			local e=tostring(err); local errLine=getErrorLine(e)
+			updateGutter(errLine); setStatus(e:sub(1,40),Color3.fromRGB(210,50,50)); MyHub:Notify("Syntax Error",e:sub(1,120),6)
+		end
 	end)
 
 	checkBtn.MouseButton1Click:Connect(function()
-		hideSugg(); local fn,err=loadstring(codeBox.Text)
-		if fn then setStatus("No errors",Color3.fromRGB(48,195,85)); MyHub:Notify("Check","Code hop le!",4)
-		else local e=tostring(err); setStatus(e:sub(1,42),Color3.fromRGB(210,50,50)); MyHub:Notify("Syntax Error",e:sub(1,120),6) end
+		hideSugg()
+		local fn,err=loadstring(codeBox.Text)
+		if fn then
+			updateGutter(nil); setStatus("No errors",Color3.fromRGB(48,195,85)); MyHub:Notify("Check","Code hop le!",4)
+		else
+			local e=tostring(err); updateGutter(getErrorLine(e))
+			setStatus(e:sub(1,40),Color3.fromRGB(210,50,50)); MyHub:Notify("Syntax Error",e:sub(1,120),6)
+		end
+	end)
+
+	fmtBtn.MouseButton1Click:Connect(function()
+		hideSugg(); local formatted=autoIndent(codeBox.Text)
+		codeBox.Text=formatted; setStatus("Formatted",Color3.fromRGB(100,160,255))
 	end)
 
 	copyBtn.MouseButton1Click:Connect(function()
@@ -380,310 +608,198 @@ local function openCodeEditor(preload)
 	end)
 
 	saveBtn.MouseButton1Click:Connect(function()
-		if codeBox.Text:match("^%s*$") then setStatus("Empty",Color3.fromRGB(210,130,50)); return end
+		if codeBox.Text:match("^%s*$") then setStatus("Empty!",Color3.fromRGB(210,130,50)); return end
 		local name="Code_"..os.date("%m%d_%H%M%S")
 		table.insert(scripts,{name=name,code=codeBox.Text,source="editor"}); saveScripts()
-		setStatus("Saved: "..name,Color3.fromRGB(155,88,255)); MyHub:Notify("Saved",name,3)
+		setStatus("Saved: "..name,Color3.fromRGB(150,85,255)); MyHub:Notify("Saved",name,3)
 	end)
 
 	clearBtn.MouseButton1Click:Connect(function()
-		hideSugg(); codeBox.Text=DEFAULT_CODE; setStatus("Ready",Color3.fromRGB(65,65,90))
+		hideSugg(); codeBox.Text=DEFAULT_CODE; updateGutter(nil); setStatus("Ready",Color3.fromRGB(60,60,85))
 	end)
 
-	-- Open animation.
+	-- Open animation
 	tweenService:Create(win,TweenInfo.new(0.35,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Size=UDim2.new(0,WIN_W,0,WIN_H)}):Play()
 end
 
---------------------------------------------------------------------------------
 -- WINDOW
---------------------------------------------------------------------------------
-local Window=MyHub:CreateWindow({
-	Name="Potassium Hub", LoadingTitle="Potassium", LoadingSubtitle="v2.1 — Loading...",
-})
-
+local Window=MyHub:CreateWindow({Name="Potassium Hub",LoadingTitle="Potassium",LoadingSubtitle="v2.2 — Loading..."})
 for name,theme in pairs(THEMES) do Window:AddTheme(name,theme) end
-Window:SetTheme(cfg.theme or "Default")
 
-local function applyShadow(disabled)
+local applyShadow=function(dis)
 	if not Window.mainWindow then return end
 	for _,c in ipairs(Window.mainWindow:GetChildren()) do
-		if c:IsA("ImageLabel") and c.Image=="rbxassetid://1316045217" then c.Visible=not disabled end
+		if c:IsA("ImageLabel") and c.Image=="rbxassetid://1316045217" then c.Visible=not dis end
 	end
 end
+
+-- Apply initial settings (global settings đã được MyHub load tự động)
+if not (cfg.oldUi or cfg.betaUi) and cfg.theme then Window:SetTheme(cfg.theme) end
+if cfg.oldUi then Window:SetTheme("Classic") end
+if cfg.betaUi then Window:SetTheme("BetaUI") end
 applyShadow(cfg.noShadow)
 
--- Apply oldUi/betaUi via theme (instant, no restart needed).
-if cfg.oldUi then Window:SetTheme("Classic")
-elseif cfg.betaUi then Window:SetTheme("BetaUI") end
-
---------------------------------------------------------------------------------
--- TAB: MAIN
---------------------------------------------------------------------------------
+-- TABS
 local TabMain=Window:NewTab({Name="Main",Icon="S"})
-
--- SECTION: Scripts
 do
 	local S=TabMain:NewSection({Name="Scripts"})
-	local selectedScript=nil
-
+	local sel=nil
 	local function getOpts()
 		if #scripts==0 then return {"(Chua co script)"} end
 		local o={}; for _,s in ipairs(scripts) do table.insert(o,s.name) end; return o
 	end
-
-	S:NewLabel({Name="Load script da luu roi Execute.\nSave script tu URL vao danh sach."})
-
+	S:NewLabel({Name="Load script da luu roi Execute.\nSave tu URL vao danh sach."})
 	S:NewDropdown({Name="Script da luu",Options=getOpts(),Callback=function(v)
-		for _,s in ipairs(scripts) do if s.name==v then selectedScript=s; break end end
+		for _,s in ipairs(scripts) do if s.name==v then sel=s;break end end
 	end})
-
 	S:NewButton({Name="Execute Script",Callback=function()
-		if not selectedScript then MyHub:Notify("Error","Chua chon script!",3); return end
-		local fn,err=loadstring(selectedScript.code)
-		if fn then task.spawn(fn); MyHub:Notify("Execute",selectedScript.name,3)
+		if not sel then MyHub:Notify("Error","Chua chon script!",3); return end
+		local fn,err=loadstring(sel.code)
+		if fn then task.spawn(fn); MyHub:Notify("Execute",sel.name,3)
 		else MyHub:Notify("Syntax Error",tostring(err):sub(1,120),6) end
 	end})
-
 	S:NewButton({Name="Xoa script dang chon",Callback=function()
-		if not selectedScript then MyHub:Notify("Error","Chua chon!",3); return end
-		local name=selectedScript.name
-		for i,s in ipairs(scripts) do if s==selectedScript then table.remove(scripts,i); break end end
-		selectedScript=nil; saveScripts(); MyHub:Notify("Deleted","Da xoa: "..name,3)
+		if not sel then MyHub:Notify("Error","Chua chon!",3); return end
+		local n=sel.name
+		for i,s in ipairs(scripts) do if s==sel then table.remove(scripts,i);break end end
+		sel=nil; saveScripts(); MyHub:Notify("Deleted","Da xoa: "..n,3)
 	end})
-
-	local nameInput=S:NewInput({Name="Ten script moi",PlaceholderText="Nhap ten...",Flag="saver_name"})
-
+	local nameIn=S:NewInput({Name="Ten script moi",PlaceholderText="Nhap ten...",Flag="saver_name"})
 	S:NewTextBoxButton({Name="URL (GitHub raw, pastebin...)",PlaceholderText="https://...",ButtonText="Save",Callback=function(url)
-		local name=(nameInput and nameInput.Text~="") and nameInput.Text or ("Script_"..#scripts+1)
+		local n=(nameIn and nameIn.Text~="") and nameIn.Text or ("Script_"..#scripts+1)
 		local ok,code=pcall(game.HttpGet,game,url)
 		if not ok or not code or code=="" then MyHub:Notify("Error","Khong load duoc URL",3); return end
-		table.insert(scripts,{name=name,code=code,source=url}); saveScripts()
-		MyHub:Notify("Saved",name,3)
+		table.insert(scripts,{name=n,code=code,source=url}); saveScripts(); MyHub:Notify("Saved",n,3)
 	end})
-
 	S:NewButton({Name="Mo Code Editor",Callback=function() openCodeEditor() end})
 end
 
--- SECTION: UI Mode
 do
 	local S=TabMain:NewSection({Name="UI Mode"})
-	S:NewLabel({Name="Old Animation va Old Notify ap dung ngay.\nOld UI / Beta UI doi theme (ap dung ngay)."})
+	S:NewLabel({Name="Thay doi ap dung ngay cho Window hien tai\nVA luu Global → script khac dung MyHub se nhan luon."})
 
-	S:NewToggle({
-		Name="Old Notify (notify giua man hinh)",
-		CurrentValue=cfg.oldNotify, Flag="ui_oldnotify",
-		Callback=function(v)
-			cfg.oldNotify=v; saveCfg()
-			MyHub.Settings.oldNotify=v  -- ap dung ngay
-		end
-	})
-
-	S:NewToggle({
-		Name="Old Animation (Linear, nhanh hon)",
-		CurrentValue=cfg.oldAnimation, Flag="ui_oldanim",
-		Callback=function(v)
-			cfg.oldAnimation=v; saveCfg()
-			MyHub.Settings.oldAnimation=v  -- ap dung ngay
-		end
-	})
-
-	S:NewToggle({
-		Name="Old UI (Classic theme)",
-		CurrentValue=cfg.oldUi, Flag="ui_oldui",
-		Callback=function(v)
-			cfg.oldUi=v
-			if v then cfg.betaUi=false; Window:SetTheme("Classic"); cfg.theme="Classic"
-			elseif cfg.theme=="Classic" then Window:SetTheme("Default"); cfg.theme="Default" end
-			saveCfg()
-		end
-	})
-
-	S:NewToggle({
-		Name="Beta UI (BetaUI theme)",
-		CurrentValue=cfg.betaUi, Flag="ui_betaui",
-		Callback=function(v)
-			cfg.betaUi=v
-			if v then cfg.oldUi=false; Window:SetTheme("BetaUI"); cfg.theme="BetaUI"
-			elseif cfg.theme=="BetaUI" then Window:SetTheme("Default"); cfg.theme="Default" end
-			saveCfg()
-		end
-	})
-
-	S:NewToggle({
-		Name="Tat UI Shadow",
-		CurrentValue=cfg.noShadow, Flag="ui_noshadow",
-		Callback=function(v) cfg.noShadow=v; saveCfg(); applyShadow(v) end
-	})
+	S:NewToggle({Name="Old Notify (notify giua man hinh)",CurrentValue=cfg.oldNotify,Flag="ui_oldnotify",Callback=function(v)
+		cfg.oldNotify=v; MyHub.Settings.oldNotify=v; saveCfg()
+	end})
+	S:NewToggle({Name="Old Animation (Linear, nhanh hon)",CurrentValue=cfg.oldAnimation,Flag="ui_oldanim",Callback=function(v)
+		cfg.oldAnimation=v; MyHub.Settings.oldAnimation=v; saveCfg()
+	end})
+	S:NewToggle({Name="Old UI (Classic theme)",CurrentValue=cfg.oldUi,Flag="ui_oldui",Callback=function(v)
+		cfg.oldUi=v
+		if v then cfg.betaUi=false; Window:SetTheme("Classic"); cfg.theme="Classic"
+		elseif cfg.theme=="Classic" then Window:SetTheme("Default"); cfg.theme="Default" end
+		saveCfg(); MyHub:Notify("Old UI",v and "Bat (Classic)" or "Tat",3)
+	end})
+	S:NewToggle({Name="Beta UI (BetaUI theme)",CurrentValue=cfg.betaUi,Flag="ui_betaui",Callback=function(v)
+		cfg.betaUi=v
+		if v then cfg.oldUi=false; Window:SetTheme("BetaUI"); cfg.theme="BetaUI"
+		elseif cfg.theme=="BetaUI" then Window:SetTheme("Default"); cfg.theme="Default" end
+		saveCfg(); MyHub:Notify("Beta UI",v and "Bat (BetaUI)" or "Tat",3)
+	end})
+	S:NewToggle({Name="Tat UI Shadow",CurrentValue=cfg.noShadow,Flag="ui_noshadow",Callback=function(v)
+		cfg.noShadow=v; MyHub.GlobalSettings.noShadow=v; saveCfg(); applyShadow(v)
+	end})
 end
 
--- SECTION: Theme
 do
 	local S=TabMain:NewSection({Name="Theme"})
-
 	local allThemes={"Default","Ocean","Crimson"}
 	for name in pairs(THEMES) do table.insert(allThemes,name) end
 	table.sort(allThemes)
-
-	S:NewDropdown({
-		Name="Theme",Options=allThemes,CurrentOption=cfg.theme or "Default",
-		Callback=function(v)
-			Window:SetTheme(v); cfg.theme=v; cfg.oldUi=false; cfg.betaUi=false; saveCfg()
-			MyHub:Notify("Theme",v,3)
-		end
-	})
-
-	S:NewLabel({Name="Built-in: Default, Ocean, Crimson\nExtra: Sunset, Neon, Purple, Rose, Forest, Midnight\nSpecial: Classic (Old UI), BetaUI (Beta)"})
+	S:NewDropdown({Name="Theme",Options=allThemes,CurrentOption=cfg.theme or "Default",Callback=function(v)
+		Window:SetTheme(v); cfg.theme=v; cfg.oldUi=false; cfg.betaUi=false; saveCfg()
+		MyHub:Notify("Theme",v,3)
+	end})
+	S:NewLabel({Name="Classic = Old UI | BetaUI = Beta UI\nTheme duoc luu Global → script khac dung MyHub nhan luon."})
 end
 
---------------------------------------------------------------------------------
--- TAB: CUSTOMIZE
---------------------------------------------------------------------------------
-local TabCustomize=Window:NewTab({Name="Customize",Icon="C"})
-
+local TabCustomize=Window:NewTab({Name="Custom",Icon="C"})
 do
 	local S=TabCustomize:NewSection({Name="UI Size"})
 	local mw=Window.mainWindow
-
-	S:NewSlider({Name="Chieu rong (px)",Range={350,720},CurrentValue=mw and mw.AbsoluteSize.X or 450,Flag="ui_w",
+	S:NewSlider({Name="Rong (px)",Range={350,720},CurrentValue=mw and mw.AbsoluteSize.X or 450,Flag="ui_w",
 		Callback=function(v) if mw then mw.Size=UDim2.new(0,v,0,mw.AbsoluteSize.Y) end end})
-	S:NewSlider({Name="Chieu cao (px)",Range={260,660},CurrentValue=mw and mw.AbsoluteSize.Y or 355,Flag="ui_h",
+	S:NewSlider({Name="Cao (px)",Range={260,660},CurrentValue=mw and mw.AbsoluteSize.Y or 355,Flag="ui_h",
 		Callback=function(v) if mw then mw.Size=UDim2.new(0,mw.AbsoluteSize.X,0,v) end end})
-	S:NewButton({Name="Reset kich thuoc (450x355)",Callback=function()
+	S:NewButton({Name="Reset (450x355)",Callback=function()
 		if mw then tweenService:Create(mw,TweenInfo.new(0.25,Enum.EasingStyle.Quad),{Size=UDim2.new(0,450,0,355)}):Play() end
 	end})
 end
-
 do
-	local S=TabCustomize:NewSection({Name="Button Sound"})
-	S:NewLabel({Name="rbxassetid (so), URL .mp3/.ogg, hoac filename.\nVD: 156286438 | https://... | MyHub/click.mp3"})
-
+	local S=TabCustomize:NewSection({Name="Sound"})
 	S:NewSlider({Name="Volume",Range={0,100},CurrentValue=cfg.soundVol,Flag="sound_vol",
 		Callback=function(v) cfg.soundVol=v; saveCfg(); MyHub:SetClickSound(nil,v) end})
-
-	S:NewTextBoxButton({Name="Sound Source",PlaceholderText="156286438 | https://... | file.mp3",ButtonText="Test",
-		CurrentValue=cfg.soundSrc,Flag="sound_src",Callback=function(input)
-		local soundId
-		if input:match("^%d+$") then soundId="rbxassetid://"..input
+	S:NewTextBoxButton({Name="Sound (ID/URL/file)",PlaceholderText="156286438 | https://... | file.mp3",ButtonText="Test",
+		CurrentValue=cfg.soundSrc,Callback=function(input)
+		local sid
+		if input:match("^%d+$") then sid="rbxassetid://"..input
 		elseif input:sub(1,4)=="http" then
 			local ok,data=pcall(game.HttpGet,game,input)
-			if ok and data and #data>0 then
-				local fn="PotassiumHub/csound.mp3"; pcall(writefile,fn,data); soundId=getcustomasset(fn)
-			end
-		elseif typeof(isfile)=="function" and isfile(input) then soundId=getcustomasset(input) end
-		if soundId then
-			cfg.soundSrc=input; saveCfg(); MyHub:SetClickSound(soundId,cfg.soundVol)
-			local s=Instance.new("Sound"); s.SoundId=soundId; s.Volume=cfg.soundVol/100; s.Parent=soundService; s:Play(); debrisService:AddItem(s,5)
+			if ok and data and #data>0 then local fn="PotassiumHub/csound.mp3"; pcall(writefile,fn,data); sid=getcustomasset(fn) end
+		elseif typeof(isfile)=="function" and isfile(input) then sid=getcustomasset(input) end
+		if sid then
+			cfg.soundSrc=input; saveCfg(); MyHub:SetClickSound(sid,cfg.soundVol)
+			local s=Instance.new("Sound"); s.SoundId=sid; s.Volume=cfg.soundVol/100; s.Parent=soundService; s:Play(); debrisService:AddItem(s,5)
 			MyHub:Notify("Sound","Test OK!",2)
 		else MyHub:Notify("Sound","Khong tim thay source",3) end
 	end})
-
 	S:NewButton({Name="Reset sound mac dinh",Callback=function()
-		cfg.soundSrc="156286438"; cfg.soundVol=45; saveCfg(); MyHub:SetClickSound("rbxassetid://156286438",45); MyHub:Notify("Sound","Reset OK",2)
+		cfg.soundSrc="156286438"; cfg.soundVol=45; saveCfg()
+		MyHub:SetClickSound("rbxassetid://156286438",45); MyHub:Notify("Sound","Reset",2)
 	end})
 end
-
 do
 	local S=TabCustomize:NewSection({Name="Reset"})
 	S:NewButton({Name="Reset tat ca settings",Callback=function()
 		for k,v in pairs(DEFAULT) do cfg[k]=v end; saveCfg()
 		MyHub.Settings.oldAnimation=false; MyHub.Settings.oldNotify=false
-		Window:SetTheme("Default"); applyShadow(false); MyHub:Notify("Reset","Da reset! Ap dung mot so thay doi ngay.",5)
+		MyHub.GlobalSettings.theme=nil; MyHub.GlobalSettings.noShadow=false
+		Window:SetTheme("Default"); applyShadow(false); MyHub:Notify("Reset","Done!",4)
 	end})
 	S:NewButton({Name="Xoa tat ca scripts",Callback=function()
-		scripts={}; saveScripts(); MyHub:Notify("Scripts","Da xoa tat ca",3)
+		scripts={}; saveScripts(); MyHub:Notify("Scripts","Cleared",3)
 	end})
 end
 
---------------------------------------------------------------------------------
--- TAB: CODE
---------------------------------------------------------------------------------
 local TabCode=Window:NewTab({Name="Code",Icon="<>"})
-
 do
 	local S=TabCode:NewSection({Name="Editor"})
-	S:NewLabel({Name="Mo code editor de viet Luau.\nGo trigger → goi y xuat hien → Enter hoac bam de nhan.\nCo san dong load MyHub."})
+	S:NewLabel({Name="Go trigger → goi y xuat hien DUOI text → Enter hoac bam de nhan.\nError → to do dong bi loi.\nPreview hien elements se duoc tao.\nFormat tu dong sau khi thoat edit."})
 	S:NewButton({Name="Mo Code Editor",Callback=function() openCodeEditor() end})
 end
-
 do
 	local S=TabCode:NewSection({Name="Snippets tuy chinh"})
-	S:NewLabel({Name="Them snippet cua ban. Trigger: tu viet tat.\nInsert: code se duoc them vao. Description: mo ta.\nSnippets duoc luu vao PotassiumHub/snippets.json"})
-
-	local trigIn  = S:NewInput({Name="Trigger",      PlaceholderText="VD: myfn"})
-	local insertIn= S:NewInput({Name="Insert (code)",PlaceholderText="VD: function myfn()"})
-	local labelIn = S:NewInput({Name="Label (ten)",  PlaceholderText="VD: My Function"})
-	local descIn  = S:NewInput({Name="Description",  PlaceholderText="VD: Tao ham myfn()"})
-
-	S:NewButton({Name="Them snippet",Callback=function()
-		local trig=trigIn and trigIn.Text or ""
-		local ins =insertIn and insertIn.Text or ""
-		if trig=="" or ins=="" then MyHub:Notify("Error","Trigger va Insert khong duoc trong!",3); return end
-		table.insert(userSnippets,{trigger=trig,insert=ins,label=labelIn and labelIn.Text~="" and labelIn.Text or trig,
-			desc=descIn and descIn.Text~="" and descIn.Text or nil})
-		saveSnippets(); MyHub:Notify("Snippet","Da them: "..trig,3)
+	local tIn=S:NewInput({Name="Trigger",PlaceholderText="VD: myfn"})
+	local iIn=S:NewInput({Name="Insert (code)",PlaceholderText="VD: function myfn()"})
+	local lIn=S:NewInput({Name="Label (ten ngan)",PlaceholderText="VD: My Function"})
+	local dIn=S:NewInput({Name="Description",PlaceholderText="VD: Tao ham myfn"})
+	S:NewButton({Name="+ Them snippet",Callback=function()
+		local t=tIn and tIn.Text or ""; local ins=iIn and iIn.Text or ""
+		if t=="" or ins=="" then MyHub:Notify("Error","Trigger va Insert khong duoc trong!",3); return end
+		table.insert(userSnippets,{trigger=t,insert=ins,label=lIn and lIn.Text~="" and lIn.Text or t,desc=dIn and dIn.Text~="" and dIn.Text or nil})
+		saveSnippets(); MyHub:Notify("Snippet","Da them: "..t,3)
 	end})
-
-	S:NewButton({Name="Xoa snippet cuoi",Callback=function()
-		if #userSnippets==0 then MyHub:Notify("Error","Khong co snippet nao!",3); return end
-		local last=table.remove(userSnippets); saveSnippets(); MyHub:Notify("Deleted","Da xoa: "..last.trigger,3)
+	S:NewButton({Name="- Xoa snippet cuoi",Callback=function()
+		if #userSnippets==0 then MyHub:Notify("Error","Khong co snippet!",3); return end
+		local last=table.remove(userSnippets); saveSnippets(); MyHub:Notify("Deleted",last.trigger,3)
 	end})
 end
 
-do
-	local S=TabCode:NewSection({Name="Trigger Reference"})
-	local groups={
-		{"=== Luau ===",""},
-		{"loc","local "},{"fn","function "},{"ret","return "},{"prt","print()"},{"wrn","warn()"},{"pcl","pcall()"},
-		{"wt","task.wait()"},{"tsp","task.spawn()"},{"iif","if...then"},{"ffor","for i=1,n"},{"fpairs","for pairs"},
-		{"=== MyHub ===",""},
-		{"My","MyHub"},{"MyHub:N","Notify()"},{"MyHub:C","CreateWindow()"},
-		{"W:NT","NewTab"},{"T:NS","NewSection"},
-		{"S:NB","NewButton"},{"S:NT","NewToggle"},{"S:NSl","NewSlider"},{"S:ND","NewDropdown"},
-		{"S:NL","NewLabel"},{"S:NI","NewInput"},{"S:NTB","NewTextBoxButton"},
-		{"S:NC","NewColorPicker"},{"S:NK","NewKeybind"},{"S:NPB","NewProgressBar"},
-		{"S:NMe","NewMiniExplorer"},{"S:NIL","NewImageLabel"},{"S:NIB","NewImageButton"},{"S:NV","NewViewportFrame"},
-		{"T:NSI","NewSection+Image"},
-		{"=== Roblox ===",""},
-		{"lP","LocalPlayer"},{"char","Character"},{"hrp","HumanoidRootPart"},{"hum","Humanoid"},{"cam","Camera"},
-		{"gPS","Players"},{"gRS","RunService"},{"gUIS","UserInputService"},{"gTS","TweenService"},
-		{".Va",".Value"},{".Pa",".Parent"},{".Na",".Name"},
-		{"=== Constructors ===",""},
-		{"C3","Color3.fromRGB()"},{"V3","Vector3.new()"},{"CF","CFrame.new()"},{"U2","UDim2.new()"},
-		{"Ins","Instance.new()"},{"Ti","TweenInfo.new()"},{"Twn","TweenService:Create()"},
-		{"lstr","loadstring+HttpGet"},{"lfile","loadstring+readfile"},
-	}
-	for _,item in ipairs(groups) do
-		if item[2]=="" then S:NewParagraph({Title=item[1],Content=""})
-		else S:NewLabel({Name=string.format("  %-9s -> %s",item[1],item[2])}) end
-	end
-end
-
---------------------------------------------------------------------------------
--- TAB: EXPLORER
---------------------------------------------------------------------------------
-local TabExp=Window:NewTab({Name="Explorer",Icon="?"})
-
+local TabExp=Window:NewTab({Name="Explore",Icon="?"})
 do
 	local S=TabExp:NewSection({Name="Instance Browser"})
-	S:NewLabel({Name="Browse instances, loc Name~/=, Class~.\nBam de select, callback chay."})
-
-	local expAPI=S:NewMiniExplorer({Root=workspace,Height=240,Callback=function(ins)
-		MyHub:Notify("Explorer","["..ins.ClassName.."] "..ins.Name,3)
+	local expAPI=S:NewMiniExplorer({Root=workspace,Height=220,Callback=function(ins)
+		MyHub:Notify("["..ins.ClassName.."]",ins.Name,3)
 	end})
-
 	S:NewButton({Name="Root = workspace",Callback=function() expAPI.SetRoot(workspace) end})
-	S:NewButton({Name="Root = game.Players",Callback=function() expAPI.SetRoot(game.Players) end})
-	S:NewButton({Name="Root = game (tat ca)",Callback=function() expAPI.SetRoot(game) end})
+	S:NewButton({Name="Root = Players",Callback=function() expAPI.SetRoot(game.Players) end})
+	S:NewButton({Name="Root = game",Callback=function() expAPI.SetRoot(game) end})
 	S:NewButton({Name="Refresh",Callback=function() expAPI.Refresh() end})
-
-	S:NewLabel({Name="RemoteEvent / RemoteFunction browser:"})
-	S:NewMiniExplorer({Root=game,Height=180,ShowClasses={"RemoteEvent","RemoteFunction"},
+	S:NewLabel({Name="Remote browser (RemoteEvent + RemoteFunction):"})
+	S:NewMiniExplorer({Root=game,Height=160,ShowClasses={"RemoteEvent","RemoteFunction"},
 		Callback=function(ins) MyHub:Notify("Remote","["..ins.ClassName.."] "..ins:GetFullName(),4) end})
 end
 
---------------------------------------------------------------------------------
--- STARTUP
---------------------------------------------------------------------------------
 task.delay(1.3,function()
-	MyHub:Notify("Potassium Hub","Ready! Theme: "..(cfg.theme or "Default").."  |  Scripts: "..#scripts,5,4483362458)
+	MyHub:Notify("Potassium Hub","v2.2 Ready! Theme: "..(cfg.theme or "Default").." | Scripts: "..#scripts,5,4483362458)
 end)
