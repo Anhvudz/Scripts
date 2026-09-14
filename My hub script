@@ -55,13 +55,50 @@ local function safeReadFile(f)
 	return ok2 and dec or nil
 end
 
+-- Global settings file — shared across all scripts using MyHub.
+local GLOBAL_FILE = "PotassiumHub/myhub_global.json"
+
+-- Load global settings on startup (tự động khi require MyHub).
+do
+	local data = safeReadFile(GLOBAL_FILE)
+	if data then
+		if data.oldAnimation ~= nil then MyHub.Settings.oldAnimation = data.oldAnimation end
+		if data.oldNotify    ~= nil then MyHub.Settings.oldNotify    = data.oldNotify    end
+		if data.theme    then MyHub.GlobalSettings.theme    = data.theme    end
+		if data.noShadow ~= nil then MyHub.GlobalSettings.noShadow = data.noShadow end
+	end
+end
+
+-- Lưu global settings để các script khác dùng MyHub sẽ nhận luôn.
+function MyHub:SaveGlobalSettings()
+	if not hasFileIO then return end
+	-- Tạo folder nếu chưa có.
+	if typeof(isfolder) == "function" and not isfolder("PotassiumHub") then
+		pcall(makefolder, "PotassiumHub")
+	end
+	local data = {
+		theme        = MyHub.GlobalSettings.theme,
+		noShadow     = MyHub.GlobalSettings.noShadow,
+		oldAnimation = MyHub.Settings.oldAnimation,
+		oldNotify    = MyHub.Settings.oldNotify,
+	}
+	safeWriteFile(GLOBAL_FILE, data)
+end
+
 -- MyHub module.
 local MyHub = {}
 
 -- Settings — thay đổi tại runtime để ảnh hưởng toàn bộ MyHub.
 MyHub.Settings = {
-	oldAnimation = false,  -- animation đơn giản hơn (Linear, nhanh hơn)
-	oldNotify    = false,  -- notify kiểu cũ (giữa trên màn hình)
+	oldAnimation = false,
+	oldNotify    = false,
+}
+
+-- Global settings — persist qua tất cả script dùng MyHub.
+-- Lưu tại PotassiumHub/myhub_global.json, tự load khi require MyHub.
+MyHub.GlobalSettings = {
+	theme    = nil,
+	noShadow = false,
 }
 
 -- Themes.
@@ -925,6 +962,15 @@ function MyHub:CreateWindow(config)
 	tweenService:Create(mainWindow, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 		BackgroundTransparency = 0
 	}):Play()
+
+	-- Áp dụng global settings — theme, shadow, settings từ file.
+	-- Bất kỳ script nào dùng MyHub cũng nhận các settings này tự động.
+	if MyHub.GlobalSettings.theme and Themes[MyHub.GlobalSettings.theme] then
+		WindowApi:SetTheme(MyHub.GlobalSettings.theme)
+	end
+	if MyHub.GlobalSettings.noShadow and shadow then
+		shadow.Visible = false
+	end
 
 	if loaded then
 		MyHub:Notify("Config Loaded", "Restored settings for " .. placeName, 3, 4483362458)
@@ -2214,7 +2260,9 @@ function MyHub:CreateWindow(config)
 	end -- NewTab
 
 	function WindowApi:SetTheme(themeName)
-		currentTheme = Themes[tostring(themeName)] or Themes.Default
+		local name = tostring(themeName)
+		currentTheme = Themes[name] or Themes.Default
+		MyHub.GlobalSettings.theme = name
 		if mainWindow then mainWindow.BackgroundColor3 = currentTheme.Background end
 		if titleBar   then titleBar.BackgroundColor3   = currentTheme.Topbar end
 	end
