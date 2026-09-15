@@ -55,54 +55,6 @@ local function safeReadFile(f)
 	return ok2 and dec or nil
 end
 
--- Global settings file — shared across all scripts using MyHub.
-local GLOBAL_FILE = "PotassiumHub/myhub_global.json"
-
--- Load global settings on startup (tự động khi require MyHub).
-do
-	local data = safeReadFile(GLOBAL_FILE)
-	if data then
-		if data.oldAnimation ~= nil then MyHub.Settings.oldAnimation = data.oldAnimation end
-		if data.oldNotify    ~= nil then MyHub.Settings.oldNotify    = data.oldNotify    end
-		if data.theme    then MyHub.GlobalSettings.theme    = data.theme    end
-		if data.noShadow ~= nil then MyHub.GlobalSettings.noShadow = data.noShadow end
-	end
-end
-
--- MyHub module.
-local MyHub = {}
-
--- Lưu global settings để các script khác dùng MyHub sẽ nhận luôn.
-function MyHub:SaveGlobalSettings()
-	if not hasFileIO then return end
-	-- Tạo folder nếu chưa có.
-	if typeof(isfolder) == "function" and not isfolder("PotassiumHub") then
-		pcall(makefolder, "PotassiumHub")
-	end
-	local data = {
-		theme        = MyHub.GlobalSettings.theme,
-		noShadow     = MyHub.GlobalSettings.noShadow,
-		oldAnimation = MyHub.Settings.oldAnimation,
-		oldNotify    = MyHub.Settings.oldNotify,
-	}
-	safeWriteFile(GLOBAL_FILE, data)
-end
-
-
-
--- Settings — thay đổi tại runtime để ảnh hưởng toàn bộ MyHub.
-MyHub.Settings = {
-	oldAnimation = false,
-	oldNotify    = false,
-}
-
--- Global settings — persist qua tất cả script dùng MyHub.
--- Lưu tại PotassiumHub/myhub_global.json, tự load khi require MyHub.
-MyHub.GlobalSettings = {
-	theme    = nil,
-	noShadow = false,
-}
-
 -- Themes.
 local Themes = {
 	Default = {
@@ -194,6 +146,61 @@ local Themes = {
 	},
 }
 local currentTheme = Themes.Default
+
+
+-- Global settings — persist qua tất cả script dùng MyHub.
+-- Lưu tại PotassiumHub/myhub_global.json, tự load khi require MyHub.
+MyHub.GlobalSettings = {
+	theme    = nil,
+	noShadow = false,
+}
+
+
+
+-- Settings — thay đổi tại runtime để ảnh hưởng toàn bộ MyHub.
+MyHub.Settings = {
+	oldAnimation = false,
+	oldNotify    = false,
+}
+
+-- Global settings file — shared across all scripts using MyHub.
+local GLOBAL_FILE = "PotassiumHub/myhub_global.json"
+
+-- Load global settings on startup (tự động khi require MyHub).
+do
+	local data = safeReadFile(GLOBAL_FILE)
+	if data then
+		if data.oldAnimation ~= nil then MyHub.Settings.oldAnimation = data.oldAnimation end
+		if data.oldNotify    ~= nil then MyHub.Settings.oldNotify    = data.oldNotify    end
+		if data.theme    then MyHub.GlobalSettings.theme    = data.theme    end
+		if data.noShadow ~= nil then MyHub.GlobalSettings.noShadow = data.noShadow end
+	end
+end
+
+-- MyHub module.
+local MyHub = {}
+
+-- Lưu global settings để các script khác dùng MyHub sẽ nhận luôn.
+function MyHub:SaveGlobalSettings()
+	if not hasFileIO then return end
+	-- Tạo folder nếu chưa có.
+	if typeof(isfolder) == "function" and not isfolder("PotassiumHub") then
+		pcall(makefolder, "PotassiumHub")
+	end
+	local data = {
+		theme        = MyHub.GlobalSettings.theme,
+		noShadow     = MyHub.GlobalSettings.noShadow,
+		oldAnimation = MyHub.Settings.oldAnimation,
+		oldNotify    = MyHub.Settings.oldNotify,
+	}
+	safeWriteFile(GLOBAL_FILE, data)
+end
+
+
+
+
+
+
 
 -- Click sound.
 local clickSound = Instance.new("Sound")
