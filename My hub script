@@ -55,6 +55,9 @@ local function safeReadFile(f)
 	return ok2 and dec or nil
 end
 
+-- MyHub module.
+local MyHub = {}
+
 -- Themes.
 local Themes = {
 	Default = {
@@ -177,8 +180,7 @@ do
 	end
 end
 
--- MyHub module.
-local MyHub = {}
+
 
 -- Lưu global settings để các script khác dùng MyHub sẽ nhận luôn.
 function MyHub:SaveGlobalSettings()
