@@ -69,6 +69,9 @@ do
 	end
 end
 
+-- MyHub module.
+local MyHub = {}
+
 -- Lưu global settings để các script khác dùng MyHub sẽ nhận luôn.
 function MyHub:SaveGlobalSettings()
 	if not hasFileIO then return end
@@ -85,8 +88,7 @@ function MyHub:SaveGlobalSettings()
 	safeWriteFile(GLOBAL_FILE, data)
 end
 
--- MyHub module.
-local MyHub = {}
+
 
 -- Settings — thay đổi tại runtime để ảnh hưởng toàn bộ MyHub.
 MyHub.Settings = {
